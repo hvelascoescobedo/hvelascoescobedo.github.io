@@ -21,7 +21,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
 from analizador.diccionario import DiccionarioRestaurantes
-from analizador.exportar_excel import exportar_resultados
+from analizador.exportar_excel import (
+    MAXIMO_HOJAS_COMBINACION,
+    contar_combinaciones,
+    exportar_resultados,
+)
 
 CARPETA_POR_DEFECTO = "datos"
 
@@ -220,8 +224,16 @@ def main(argv: list[str] | None = None) -> int:
         if not ruta_salida.is_absolute():
             ruta_salida = base / "resultados" / ruta_salida
 
+        combinaciones = contar_combinaciones(resultados)
         ruta_final = exportar_resultados(resultados, ruta_salida, registros)
         print(f"\nListo. Excel generado en:\n  {ruta_final}")
+        hojas = min(combinaciones, MAXIMO_HOJAS_COMBINACION)
+        print(f"  Hojas de producto x periodo: {hojas}")
+        if combinaciones > MAXIMO_HOJAS_COMBINACION:
+            print(
+                f"  AVISO: eran {combinaciones} combinaciones y solo se armaron las primeras "
+                f"{MAXIMO_HOJAS_COMBINACION}; la hoja Resultados si trae todo."
+            )
 
         if not interactivo:
             break

@@ -1,11 +1,15 @@
 """Generacion del archivo de Excel con los resultados de la busqueda.
 
-El libro tiene tres hojas:
+El libro tiene estas hojas:
 
 * **Resultados** -- un renglon por item / restaurante / periodo. Las primeras
   columnas son las pedidas: #ID de restaurante, nombre, numero de item y
   cuantas ventas (unidades vendidas).
 * **Resumen**    -- total de unidades e importe por item y periodo.
+* **Una hoja por cada combinacion de producto y periodo** -- si se buscan 2
+  productos y hay 2 periodos, salen 4 hojas (producto 1 periodo 1, producto 1
+  periodo 2, producto 2 periodo 1, producto 2 periodo 2), cada una con el
+  detalle por restaurante y su renglon de totales.
 * **Archivos**   -- registro de los archivos leidos.
 
 Las fechas de inicio y fin de cada renglon salen del propio reporte, no del
@@ -58,6 +62,30 @@ COLUMNAS_RESUMEN = [
     ("Ventas ($)", 16),
 ]
 
+# Hojas por combinacion producto x periodo (el producto y las fechas son fijos
+# en cada hoja, por eso van en el titulo y no se repiten en cada renglon).
+COLUMNAS_COMBINACION = [
+    ("#ID Restaurante", 16),
+    ("Restaurante", 26),
+    ("# Item", 10),
+    ("Nombre del item", 24),
+    ("Ventas (unidades)", 18),
+    ("Ventas ($)", 14),
+    ("Precio de menu", 15),
+    ("Costo total", 14),
+    ("Utilidad", 14),
+    ("Categoria", 22),
+    ("Subcategoria", 24),
+    ("Encontrado", 12),
+    ("Archivo", 26),
+]
+
+# Tope de seguridad: Excel se vuelve inmanejable con miles de hojas.
+MAXIMO_HOJAS_COMBINACION = 150
+
+CARACTERES_PROHIBIDOS = set(r"[]:*?/\\")
+LARGO_MAXIMO_HOJA = 31
+
 COLUMNAS_ARCHIVOS = [
     ("Archivo", 30),
     ("#ID Restaurante", 16),
@@ -70,15 +98,15 @@ COLUMNAS_ARCHIVOS = [
 ]
 
 
-def _escribir_encabezado(hoja, columnas: Sequence[tuple[str, int]]) -> None:
+def _escribir_encabezado(hoja, columnas: Sequence[tuple[str, int]], fila: int = 1) -> None:
     for indice, (titulo, ancho) in enumerate(columnas, start=1):
-        celda = hoja.cell(row=1, column=indice, value=titulo)
+        celda = hoja.cell(row=fila, column=indice, value=titulo)
         celda.fill = RELLENO_ENCABEZADO
         celda.font = FUENTE_ENCABEZADO
         celda.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         hoja.column_dimensions[get_column_letter(indice)].width = ancho
-    hoja.freeze_panes = "A2"
-    hoja.auto_filter.ref = f"A1:{get_column_letter(len(columnas))}1"
+    hoja.freeze_panes = f"A{fila + 1}"
+    hoja.auto_filter.ref = f"A{fila}:{get_column_letter(len(columnas))}{fila}"
 
 
 def _formato_fecha(valor: date | None):
@@ -160,6 +188,129 @@ def _hoja_resumen(libro: Workbook, resultados: Sequence[ResultadoItem]) -> None:
         fila += 1
 
 
+# ---------------------------------------------------------------------------
+# Una hoja por cada combinacion de producto y periodo
+# ---------------------------------------------------------------------------
+
+
+def _etiqueta_periodo(inicio: date | None, fin: date | None) -> str:
+    """Periodo corto para el nombre de la hoja: '03-08 a 06-08'."""
+    if inicio and fin:
+        return f"{inicio:%d-%m} a {fin:%d-%m}"
+    return "sin fechas"
+
+
+def _nombre_de_hoja(busqueda: str, inicio: date | None, fin: date | None, usados: set) -> str:
+    """Nombre valido y unico para la hoja (Excel: 31 caracteres, sin []:*?/\\)."""
+    base = f"{busqueda} {_etiqueta_periodo(inicio, fin)}"
+    limpio = "".join(" " if c in CARACTERES_PROHIBIDOS else c for c in base).strip()
+    nombre = limpio[:LARGO_MAXIMO_HOJA] or "Hoja"
+
+    if nombre.casefold() in usados:
+        # Se recorta para dejar lugar al sufijo " (2)", " (3)", ...
+        for intento in range(2, 1000):
+            sufijo = f" ({intento})"
+            candidato = f"{nombre[:LARGO_MAXIMO_HOJA - len(sufijo)].strip()}{sufijo}"
+            if candidato.casefold() not in usados:
+                nombre = candidato
+                break
+    usados.add(nombre.casefold())
+    return nombre
+
+
+def _hoja_de_combinacion(
+    libro: Workbook,
+    busqueda: str,
+    inicio: date | None,
+    fin: date | None,
+    renglones: Sequence[ResultadoItem],
+    usados: set,
+) -> None:
+    """Escribe la hoja de un producto en un periodo, con su total al final."""
+    hoja = libro.create_sheet(_nombre_de_hoja(busqueda, inicio, fin, usados))
+
+    nombre_item = next((r.item_nombre for r in renglones if r.item_nombre), "")
+    numeros = sorted({r.item_numero for r in renglones if r.item_numero is not None})
+    if len(numeros) == 1:
+        descripcion = f"Item {numeros[0]}" + (f" - {nombre_item}" if nombre_item else "")
+    else:
+        descripcion = f"Busqueda '{busqueda}' ({len(numeros)} items)"
+    periodo = (
+        f"del {inicio:%d/%m/%Y} al {fin:%d/%m/%Y}"
+        if inicio and fin
+        else "(el reporte no traia fechas)"
+    )
+
+    titulo = hoja.cell(row=1, column=1, value=f"{descripcion}  |  {periodo}")
+    titulo.font = Font(bold=True, size=12)
+    hoja.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(COLUMNAS_COMBINACION))
+
+    _escribir_encabezado(hoja, COLUMNAS_COMBINACION, fila=2)
+
+    fila = 3
+    for renglon in sorted(renglones, key=lambda r: (r.restaurante_id, r.item_numero or 0)):
+        valores = [
+            renglon.restaurante_id,
+            renglon.restaurante_nombre,
+            renglon.item_numero if renglon.item_numero is not None else renglon.busqueda,
+            renglon.item_nombre,
+            renglon.unidades_vendidas,
+            round(renglon.ventas_importe, 2),
+            round(renglon.precio_menu, 2),
+            round(renglon.costo_total, 2),
+            round(renglon.utilidad, 2),
+            renglon.categoria,
+            renglon.subcategoria,
+            "Si" if renglon.encontrado else "No",
+            renglon.archivo,
+        ]
+        for columna, valor in enumerate(valores, start=1):
+            hoja.cell(row=fila, column=columna, value=valor)
+        for columna in (6, 7, 8, 9):
+            hoja.cell(row=fila, column=columna).number_format = "#,##0.00"
+        fila += 1
+
+    hoja.cell(row=fila, column=1, value="TOTAL").font = Font(bold=True)
+    totales = {
+        5: sum(r.unidades_vendidas for r in renglones),
+        6: round(sum(r.ventas_importe for r in renglones), 2),
+        8: round(sum(r.costo_total for r in renglones), 2),
+        9: round(sum(r.utilidad for r in renglones), 2),
+    }
+    for columna, valor in totales.items():
+        celda = hoja.cell(row=fila, column=columna, value=valor)
+        celda.font = Font(bold=True)
+        if columna != 5:
+            celda.number_format = "#,##0.00"
+
+
+def _hojas_por_combinacion(libro: Workbook, resultados: Sequence[ResultadoItem]) -> int:
+    """Crea una hoja por cada producto buscado y cada periodo encontrado."""
+    combinaciones: dict[tuple, list[ResultadoItem]] = defaultdict(list)
+    for resultado in resultados:
+        combinaciones[(resultado.busqueda, resultado.fecha_inicio, resultado.fecha_fin)].append(
+            resultado
+        )
+
+    orden_busquedas = {}
+    for resultado in resultados:  # se respeta el orden en que se pidieron
+        orden_busquedas.setdefault(resultado.busqueda, len(orden_busquedas))
+
+    claves = sorted(
+        combinaciones,
+        key=lambda clave: (orden_busquedas[clave[0]], clave[1] or date.min),
+    )
+
+    usados: set = set()
+    for numero, clave in enumerate(claves, start=1):
+        if numero > MAXIMO_HOJAS_COMBINACION:
+            break
+        busqueda, inicio, fin = clave
+        _hoja_de_combinacion(libro, busqueda, inicio, fin, combinaciones[clave], usados)
+
+    return len(claves)
+
+
 def _hoja_archivos(
     libro: Workbook,
     registros: Sequence[RegistroArchivo],
@@ -218,7 +369,13 @@ def exportar_resultados(
     libro = Workbook()
     _hoja_resultados(libro, resultados)
     _hoja_resumen(libro, resultados)
+    _hojas_por_combinacion(libro, resultados)
     if registros:
         _hoja_archivos(libro, registros, resultados)
     libro.save(ruta_salida)
     return ruta_salida
+
+
+def contar_combinaciones(resultados: Sequence[ResultadoItem]) -> int:
+    """Cuantas hojas de producto x periodo corresponden a estos resultados."""
+    return len({(r.busqueda, r.fecha_inicio, r.fecha_fin) for r in resultados})

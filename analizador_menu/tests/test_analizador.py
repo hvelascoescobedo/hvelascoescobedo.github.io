@@ -14,7 +14,12 @@ sys.path.insert(0, str(RAIZ))
 
 from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
 from analizador.diccionario import DiccionarioRestaurantes
-from analizador.exportar_excel import exportar_resultados
+from analizador.exportar_excel import (
+    MAXIMO_HOJAS_COMBINACION,
+    _nombre_de_hoja,
+    contar_combinaciones,
+    exportar_resultados,
+)
 from analizador.nombre_archivo import interpretar_nombre, listar_archivos
 from analizador.parser_reporte import leer_reporte
 
@@ -211,7 +216,7 @@ class PruebaBusqueda(unittest.TestCase):
 
 
 class PruebaExportacion(unittest.TestCase):
-    def test_genera_las_tres_hojas(self):
+    def test_genera_las_hojas_fijas(self):
         from openpyxl import load_workbook
 
         registros = cargar_reportes(REPORTE_EJEMPLO.parent)
@@ -220,7 +225,10 @@ class PruebaExportacion(unittest.TestCase):
             ruta = exportar_resultados(resultados, Path(tmp) / "salida", registros)
             self.assertTrue(ruta.exists())
             libro = load_workbook(ruta)
-            self.assertEqual(libro.sheetnames, ["Resultados", "Resumen", "Archivos"])
+            self.assertEqual(
+                libro.sheetnames,
+                ["Resultados", "Resumen", "37014 03-08 a 06-08", "Archivos"],
+            )
             hoja = libro["Resultados"]
             encabezados = [c.value for c in hoja[1]]
             self.assertEqual(
@@ -241,6 +249,108 @@ class PruebaExportacion(unittest.TestCase):
             self.assertEqual(hoja.cell(row=2, column=4).value, 98)
             self.assertEqual(hoja.cell(row=2, column=5).value, "03/08/2026")
             self.assertEqual(hoja.cell(row=2, column=6).value, "06/08/2026")
+
+
+class PruebaHojasPorCombinacion(unittest.TestCase):
+    """Una hoja por cada producto buscado y cada periodo encontrado."""
+
+    def _carpeta_con_dos_periodos(self, tmp: str) -> Path:
+        carpeta = Path(tmp)
+        original = REPORTE_EJEMPLO.read_text(encoding="utf-8")
+        (carpeta / "6001 (3-6).txt").write_text(original, encoding="utf-8")
+        (carpeta / "6002 (10-13).txt").write_text(
+            original.replace("#6001", "#6002").replace("8/3/26 to 8/6/26", "8/10/26 to 8/13/26"),
+            encoding="utf-8",
+        )
+        return carpeta
+
+    def test_dos_productos_por_dos_periodos_son_cuatro_hojas(self):
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014", "37021"])
+            self.assertEqual(contar_combinaciones(resultados), 4)
+
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            libro = load_workbook(ruta)
+            self.assertEqual(
+                libro.sheetnames,
+                [
+                    "Resultados",
+                    "Resumen",
+                    "37014 03-08 a 06-08",
+                    "37014 10-08 a 13-08",
+                    "37021 03-08 a 06-08",
+                    "37021 10-08 a 13-08",
+                    "Archivos",
+                ],
+            )
+
+            hoja = libro["37014 03-08 a 06-08"]
+            self.assertIn("PLATO DE EQUIPO", hoja.cell(row=1, column=1).value)
+            self.assertIn("03/08/2026", hoja.cell(row=1, column=1).value)
+            self.assertEqual(hoja.cell(row=2, column=1).value, "#ID Restaurante")
+            # Solo el restaurante de ese periodo, con sus 98 unidades.
+            self.assertEqual(hoja.cell(row=3, column=1).value, "6001")
+            self.assertEqual(hoja.cell(row=3, column=5).value, 98)
+            self.assertEqual(hoja.cell(row=4, column=1).value, "TOTAL")
+            self.assertEqual(hoja.cell(row=4, column=5).value, 98)
+
+    def test_tres_productos_por_dos_periodos_son_seis_hojas(self):
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014", "37021", "37031"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            hojas = load_workbook(ruta).sheetnames
+            self.assertEqual(len(hojas), 6 + 3)  # 6 combinaciones + las 3 hojas fijas
+
+    def test_busqueda_por_nombre_junta_sus_items_en_una_hoja(self):
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["alitas"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            libro = load_workbook(ruta)
+            hoja = libro["alitas 03-08 a 06-08"]
+            self.assertIn("items", hoja.cell(row=1, column=1).value)
+            self.assertGreater(hoja.max_row, 10)
+
+    def test_nombres_de_hoja_validos_y_unicos(self):
+        usados: set = set()
+        largo = "un nombre de producto larguisimo que no cabe"
+        primero = _nombre_de_hoja(largo, date(2026, 8, 3), date(2026, 8, 6), usados)
+        segundo = _nombre_de_hoja(largo, date(2026, 8, 3), date(2026, 8, 6), usados)
+        for nombre in (primero, segundo):
+            self.assertLessEqual(len(nombre), 31)
+            self.assertFalse(set(nombre) & set(r"[]:*?/\\"))
+        self.assertNotEqual(primero, segundo)
+
+        con_prohibidos = _nombre_de_hoja("pizza/queso*", None, None, usados)
+        self.assertNotIn("/", con_prohibidos)
+        self.assertIn("sin fechas", con_prohibidos)
+
+    def test_tope_de_hojas(self):
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            # 100 numeros x 2 periodos = 200 combinaciones, por encima del tope.
+            busquedas = [str(n) for n in range(37000, 37100)]
+            resultados = buscar_items(registros, busquedas)
+            self.assertEqual(contar_combinaciones(resultados), 200)
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            hojas = load_workbook(ruta).sheetnames
+            self.assertEqual(len(hojas), MAXIMO_HOJAS_COMBINACION + 3)
+            # La hoja Resultados conserva todos los renglones.
+            self.assertEqual(load_workbook(ruta)["Resultados"].max_row, len(resultados) + 1)
 
 
 if __name__ == "__main__":

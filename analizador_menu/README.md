@@ -98,7 +98,7 @@ Los resultados se guardan en `resultados/` cuando no se da una ruta completa.
 
 ## 4. Qué contiene el Excel
 
-**Hoja `Resultados`** — un renglón por item / restaurante / periodo:
+**Hoja `Resultados`** — todo junto, un renglón por item / restaurante / periodo:
 
 | #ID Restaurante | Restaurante | # Item | Ventas (unidades) | Fecha inicio | Fecha fin | Nombre del item | Categoria | Subcategoria | Ventas ($) | Precio de menu | Costo total | Utilidad | Busqueda | Encontrado | Archivo |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -109,6 +109,26 @@ reporte; el resto es contexto extra que se puede ocultar o borrar. Cuando un
 item no aparece en un restaurante se
 incluye igual con **0 ventas** y `Encontrado = No`, para que la tabla quede
 completa (con `--sin-vacios` se omiten esos renglones).
+
+**Una hoja por cada producto y cada periodo** — si buscas 2 productos y hay 2
+periodos, salen 4 hojas: `37014 03-08 a 06-08`, `37014 10-08 a 13-08`,
+`37021 03-08 a 06-08`, `37021 10-08 a 13-08`. Y así para los productos y
+periodos que sean. Cada hoja trae el título con el producto y las fechas, el
+detalle por restaurante y un renglón de **TOTAL** al final:
+
+```
+Item 37014 - PLATO DE EQUIPO  |  del 03/08/2026 al 06/08/2026
+#ID Restaurante | Restaurante      | # Item | Nombre del item | Ventas (unidades) | Ventas ($) | ...
+6001            | Merida           | 37014  | PLATO DE EQUIPO | 82                | 33865.87   | ...
+6002            | Altabrisa        | 37014  | PLATO DE EQUIPO | 120               | 33865.87   | ...
+6013            | Playa del Carmen | 37014  | PLATO DE EQUIPO | 10                | 33865.87   | ...
+TOTAL           |                  |        |                 | 212               | 101597.61  | ...
+```
+
+Si buscas por nombre (`alitas`), cada hoja junta todos los productos que
+coinciden en ese periodo. Por seguridad se arman como máximo 150 hojas: si
+pides un rango enorme te avisa en pantalla, y la hoja `Resultados` de todos
+modos trae todo.
 
 **Hoja `Resumen`** — totales por item y periodo (fecha inicio / fecha fin): en
 cuántos restaurantes se vendió, unidades e importe.

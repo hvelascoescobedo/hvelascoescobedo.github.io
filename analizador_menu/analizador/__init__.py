@@ -12,7 +12,7 @@ from .parser_reporte import ItemMenu, ReporteMenu, leer_reporte
 from .nombre_archivo import InfoArchivo, interpretar_nombre
 from .diccionario import DiccionarioRestaurantes
 from .busqueda import ResultadoItem, buscar_items, cargar_reportes
-from .exportar_excel import exportar_resultados
+from .exportar_excel import MAXIMO_HOJAS_COMBINACION, contar_combinaciones, exportar_resultados
 
 __all__ = [
     "ItemMenu",
@@ -25,4 +25,6 @@ __all__ = [
     "buscar_items",
     "cargar_reportes",
     "exportar_resultados",
+    "contar_combinaciones",
+    "MAXIMO_HOJAS_COMBINACION",
 ]
