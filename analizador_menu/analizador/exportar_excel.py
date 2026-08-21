@@ -6,8 +6,10 @@ El libro tiene tres hojas:
   columnas son las pedidas: #ID de restaurante, nombre, numero de item y
   cuantas ventas (unidades vendidas).
 * **Resumen**    -- total de unidades e importe por item y periodo.
-* **Archivos**   -- registro de los archivos leidos y lo que se dedujo de cada
-  nombre (#restaurante y periodo).
+* **Archivos**   -- registro de los archivos leidos.
+
+Las fechas de inicio y fin de cada renglon salen del propio reporte, no del
+nombre del archivo.
 """
 
 from __future__ import annotations
@@ -31,7 +33,6 @@ COLUMNAS_RESULTADOS = [
     ("Restaurante", 26),
     ("# Item", 10),
     ("Ventas (unidades)", 18),
-    ("Periodo", 12),
     ("Fecha inicio", 14),
     ("Fecha fin", 14),
     ("Nombre del item", 24),
@@ -50,7 +51,8 @@ COLUMNAS_RESUMEN = [
     ("Busqueda", 14),
     ("# Item", 10),
     ("Nombre del item", 24),
-    ("Periodo", 12),
+    ("Fecha inicio", 14),
+    ("Fecha fin", 14),
     ("Restaurantes con venta", 22),
     ("Ventas (unidades)", 18),
     ("Ventas ($)", 16),
@@ -60,11 +62,11 @@ COLUMNAS_ARCHIVOS = [
     ("Archivo", 30),
     ("#ID Restaurante", 16),
     ("Restaurante", 26),
-    ("Periodo", 12),
     ("Fecha inicio", 14),
     ("Fecha fin", 14),
     ("Items leidos", 14),
     ("Estado", 30),
+    ("Aviso", 46),
 ]
 
 
@@ -94,7 +96,6 @@ def _hoja_resultados(libro: Workbook, resultados: Sequence[ResultadoItem]) -> No
             resultado.restaurante_nombre,
             resultado.item_numero if resultado.item_numero is not None else resultado.busqueda,
             resultado.unidades_vendidas,
-            resultado.periodo,
             _formato_fecha(resultado.fecha_inicio),
             _formato_fecha(resultado.fecha_fin),
             resultado.item_nombre,
@@ -110,7 +111,7 @@ def _hoja_resultados(libro: Workbook, resultados: Sequence[ResultadoItem]) -> No
         ]
         for columna, valor in enumerate(valores, start=1):
             hoja.cell(row=fila, column=columna, value=valor)
-        for columna in (11, 12, 13, 14):
+        for columna in (10, 11, 12, 13):
             hoja.cell(row=fila, column=columna).number_format = "#,##0.00"
 
     hoja.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNAS_RESULTADOS))}{max(len(resultados) + 1, 1)}"
@@ -124,7 +125,12 @@ def _hoja_resumen(libro: Workbook, resultados: Sequence[ResultadoItem]) -> None:
         lambda: {"nombre": "", "restaurantes": set(), "unidades": 0, "importe": 0.0}
     )
     for resultado in resultados:
-        clave = (resultado.busqueda, resultado.item_numero, resultado.periodo)
+        clave = (
+            resultado.busqueda,
+            resultado.item_numero,
+            resultado.fecha_inicio,
+            resultado.fecha_fin,
+        )
         registro = acumulado[clave]
         if resultado.item_nombre and not registro["nombre"]:
             registro["nombre"] = resultado.item_nombre
@@ -134,21 +140,23 @@ def _hoja_resumen(libro: Workbook, resultados: Sequence[ResultadoItem]) -> None:
         registro["importe"] += resultado.ventas_importe
 
     fila = 2
-    for (busqueda, numero, periodo), registro in sorted(
-        acumulado.items(), key=lambda par: (str(par[0][0]), str(par[0][1]), str(par[0][2]))
+    for (busqueda, numero, inicio, fin), registro in sorted(
+        acumulado.items(),
+        key=lambda par: (str(par[0][0]), str(par[0][1]), par[0][2] or date.min),
     ):
         valores = [
             busqueda,
             numero if numero is not None else "",
             registro["nombre"],
-            periodo,
+            _formato_fecha(inicio),
+            _formato_fecha(fin),
             len(registro["restaurantes"]),
             registro["unidades"],
             round(registro["importe"], 2),
         ]
         for columna, valor in enumerate(valores, start=1):
             hoja.cell(row=fila, column=columna, value=valor)
-        hoja.cell(row=fila, column=7).number_format = "#,##0.00"
+        hoja.cell(row=fila, column=8).number_format = "#,##0.00"
         fila += 1
 
 
@@ -177,11 +185,11 @@ def _hoja_archivos(
             registro.info.nombre_archivo,
             registro.restaurante_id,
             nombres.get(registro.restaurante_id, ""),
-            registro.periodo,
             _formato_fecha(registro.fecha_inicio),
             _formato_fecha(registro.fecha_fin),
             len(registro.reporte.items) if registro.reporte else 0,
             estado,
+            registro.aviso_periodo,
         ]
         for columna, valor in enumerate(valores, start=1):
             hoja.cell(row=fila, column=columna, value=valor)

@@ -33,13 +33,14 @@ datos/
 └── ...
 ```
 
-* Los **primeros 4 dígitos** son el número de restaurante.
-* Lo que va **entre paréntesis** es el periodo.
-* También se aceptan variantes como `6001_3-6.txt`, `6001-10-13.txt`,
-  `6001 (3 al 6).txt` o `6001 (Ago 10-13).txt`.
-* Si el nombre no trae periodo, se toma el que viene **dentro** del reporte
-  (`For the period: 8/3/26 to 8/6/26`), y lo mismo pasa con el número de
-  restaurante (`BOSTONS GRAN PLAZA, MEXICO #6001`).
+* Los **primeros 4 dígitos** son el número de restaurante (si el nombre no los
+  trae, se toma el del encabezado del reporte: `BOSTONS GRAN PLAZA, MEXICO #6001`).
+* **Las fechas del periodo se leen siempre de DENTRO del reporte**
+  (`For the period: 8/3/26 to 8/6/26`), nunca del nombre del archivo. Lo que
+  vaya entre paréntesis solo se usa para avisarte si un archivo quedó mal
+  nombrado al descargarlo (ese aviso sale en pantalla y en la hoja `Archivos`).
+* Da igual cómo escribas el periodo en el nombre: `6001_3-6.txt`,
+  `6001-10-13.txt`, `6001 (3 al 6).txt` o `6001 (Ago 10-13).txt`.
 * Las subcarpetas también se revisan, así que puedes tener una carpeta por
   periodo si así lo prefieres.
 
@@ -61,7 +62,7 @@ Diccionario de restaurantes: 28 restaurantes cargados
 Leyendo archivos...
   [  1/24] 6001 (3-6).txt
   ...
-Archivos leidos: 24 | restaurantes: 12 | periodos: 10-13, 3-6
+Archivos leidos: 24 | restaurantes: 12 | periodos (segun el reporte): 03/08/2026-06/08/2026, 10/08/2026-13/08/2026
 
 Item(s) a buscar: 37014, 37021
 ```
@@ -99,21 +100,23 @@ Los resultados se guardan en `resultados/` cuando no se da una ruta completa.
 
 **Hoja `Resultados`** — un renglón por item / restaurante / periodo:
 
-| #ID Restaurante | Restaurante | # Item | Ventas (unidades) | Periodo | Fecha inicio | Fecha fin | Nombre del item | Categoria | Subcategoria | Ventas ($) | Precio de menu | Costo total | Utilidad | Busqueda | Encontrado | Archivo |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 6001 | Merida | 37014 | 98 | 3-6 | 03/08/2026 | 06/08/2026 | PLATO DE EQUIPO | 1--STARTERS | 1--TEAM PLATTER | 33865.87 | 399.00 | 12766.63 | 21099.24 | 37014 | Si | 6001 (3-6).txt |
+| #ID Restaurante | Restaurante | # Item | Ventas (unidades) | Fecha inicio | Fecha fin | Nombre del item | Categoria | Subcategoria | Ventas ($) | Precio de menu | Costo total | Utilidad | Busqueda | Encontrado | Archivo |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 6001 | Merida | 37014 | 98 | 03/08/2026 | 06/08/2026 | PLATO DE EQUIPO | 1--STARTERS | 1--TEAM PLATTER | 33865.87 | 399.00 | 12766.63 | 21099.24 | 37014 | Si | 6001 (3-6).txt |
 
-Las primeras cuatro columnas son justo lo pedido; el resto es contexto extra que
-se puede ocultar o borrar. Cuando un item no aparece en un restaurante se
+Las primeras cuatro columnas son justo lo pedido, y las fechas salen del propio
+reporte; el resto es contexto extra que se puede ocultar o borrar. Cuando un
+item no aparece en un restaurante se
 incluye igual con **0 ventas** y `Encontrado = No`, para que la tabla quede
 completa (con `--sin-vacios` se omiten esos renglones).
 
-**Hoja `Resumen`** — totales por item y periodo: en cuántos restaurantes se
-vendió, unidades e importe.
+**Hoja `Resumen`** — totales por item y periodo (fecha inicio / fecha fin): en
+cuántos restaurantes se vendió, unidades e importe.
 
-**Hoja `Archivos`** — el registro de cada archivo leído: qué restaurante y qué
-periodo se dedujeron del nombre, las fechas que venían dentro del reporte,
-cuántos items se leyeron y si hubo algún problema.
+**Hoja `Archivos`** — el registro de cada archivo leído: qué restaurante se
+dedujo, las fechas que venían dentro del reporte, cuántos items se leyeron, si
+hubo algún problema y un **aviso** cuando el periodo del nombre del archivo no
+coincide con las fechas del reporte.
 
 ## 5. Cómo se lee el reporte
 

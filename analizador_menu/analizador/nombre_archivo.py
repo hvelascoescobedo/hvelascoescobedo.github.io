@@ -1,5 +1,9 @@
 """Interpretacion de los nombres de archivo descargados de cada restaurante.
 
+Del nombre se toma el **numero de restaurante**.  El periodo tambien se
+interpreta, pero solo para avisar si el archivo quedo mal nombrado: las fechas
+buenas son siempre las que vienen dentro del reporte.
+
 Los archivos se descargan uno por restaurante y por periodo, con nombres del
 estilo::
 

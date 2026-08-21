@@ -121,13 +121,6 @@ class ReporteMenu:
         for item in self.items:
             self._indice.setdefault(item.inv, []).append(item)
 
-    @property
-    def periodo_reporte(self) -> str:
-        """Periodo tal y como viene *dentro* del documento (ej. '3-6')."""
-        if self.fecha_inicio and self.fecha_fin:
-            return f"{self.fecha_inicio.day}-{self.fecha_fin.day}"
-        return ""
-
     def buscar_por_numero(self, inv: int) -> list[ItemMenu]:
         """Todos los renglones con ese numero de item (normalmente uno)."""
         return list(self._indice.get(inv, []))

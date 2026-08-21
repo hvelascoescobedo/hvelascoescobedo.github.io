@@ -87,6 +87,13 @@ def _pedir_items(items_cli: str | None) -> list[str]:
         print("  No entendi nada. Intenta de nuevo.")
 
 
+def _rango_fechas(renglon) -> str:
+    """Periodo del reporte en texto: 'del 03/08/2026 al 06/08/2026'."""
+    if renglon.fecha_inicio and renglon.fecha_fin:
+        return f"del {renglon.fecha_inicio:%d/%m/%Y} al {renglon.fecha_fin:%d/%m/%Y}"
+    return "(sin fechas en el reporte)"
+
+
 def _avance(numero: int, total: int, ruta: Path) -> None:
     print(f"  [{numero:>3}/{total}] {ruta.name}")
 
@@ -110,7 +117,7 @@ def _mostrar_resumen(resultados, busquedas) -> None:
             for renglon in principales:
                 etiqueta = f"{renglon.restaurante_id} {renglon.restaurante_nombre}".strip()
                 print(
-                    f"    {etiqueta:<32} periodo {renglon.periodo:<8} "
+                    f"    {etiqueta:<32} {_rango_fechas(renglon):<24} "
                     f"{renglon.unidades_vendidas:>6} uds  ${renglon.ventas_importe:>12,.2f}"
                 )
 
@@ -176,14 +183,18 @@ def main(argv: list[str] | None = None) -> int:
 
     correctos = [r for r in registros if r.reporte]
     fallidos = [r for r in registros if not r.reporte]
-    periodos = sorted({r.periodo for r in correctos if r.periodo})
+    periodos = sorted({r.periodo_fechas for r in correctos if r.periodo_fechas})
     restaurantes = sorted({r.restaurante_id for r in correctos if r.restaurante_id})
     print(
         f"\nArchivos leidos: {len(correctos)} | restaurantes: {len(restaurantes)} "
-        f"| periodos: {', '.join(periodos) if periodos else 'sin identificar'}"
+        f"| periodos (segun el reporte): "
+        f"{', '.join(periodos) if periodos else 'sin identificar'}"
     )
     for registro in fallidos:
         print(f"  AVISO: no se pudo leer {registro.info.nombre_archivo}: {registro.error}")
+    for registro in correctos:
+        if registro.aviso_periodo:
+            print(f"  AVISO en {registro.info.nombre_archivo}: {registro.aviso_periodo}")
 
     # Busqueda (puede repetirse varias veces en la misma sesion).
     interactivo = not (argumentos.items and argumentos.salida)

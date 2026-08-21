@@ -61,7 +61,6 @@ class PruebaParser(unittest.TestCase):
         self.assertIn("BOSTONS", self.reporte.restaurante_encabezado)
         self.assertEqual(self.reporte.fecha_inicio, date(2026, 8, 3))
         self.assertEqual(self.reporte.fecha_fin, date(2026, 8, 6))
-        self.assertEqual(self.reporte.periodo_reporte, "3-6")
 
     def test_columnas_de_un_item(self):
         (item,) = self.reporte.buscar_por_numero(37014)
@@ -168,15 +167,42 @@ class PruebaBusqueda(unittest.TestCase):
             diccionario = DiccionarioRestaurantes.desde_excel(DICCIONARIO)
             resultados = buscar_items(registros, ["37014", "99999"], diccionario)
 
-            ventas = {(r.restaurante_id, r.periodo): r for r in resultados if r.item_numero == 37014}
-            self.assertEqual(ventas[("6001", "3-6")].unidades_vendidas, 98)
-            self.assertEqual(ventas[("6001", "3-6")].restaurante_nombre, "Merida")
-            self.assertEqual(ventas[("6002", "10-13")].restaurante_nombre, "Altabrisa")
-            self.assertEqual(ventas[("6002", "10-13")].fecha_inicio, date(2026, 8, 10))
+            # La clave del periodo son las fechas que vienen DENTRO del reporte.
+            ventas = {
+                (r.restaurante_id, r.fecha_inicio): r
+                for r in resultados
+                if r.item_numero == 37014
+            }
+            primero = ventas[("6001", date(2026, 8, 3))]
+            self.assertEqual(primero.unidades_vendidas, 98)
+            self.assertEqual(primero.restaurante_nombre, "Merida")
+            self.assertEqual(primero.fecha_fin, date(2026, 8, 6))
+            segundo = ventas[("6002", date(2026, 8, 10))]
+            self.assertEqual(segundo.restaurante_nombre, "Altabrisa")
+            self.assertEqual(segundo.fecha_fin, date(2026, 8, 13))
 
             faltantes = [r for r in resultados if r.busqueda == "99999"]
             self.assertEqual(len(faltantes), 2)
             self.assertTrue(all(not r.encontrado and r.unidades_vendidas == 0 for r in faltantes))
+
+    def test_las_fechas_vienen_del_reporte_no_del_nombre(self):
+        """Si el nombre del archivo miente, mandan las fechas del reporte."""
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            # El nombre dice 20-23, pero adentro el reporte es del 3 al 6.
+            (carpeta / "6001 (20-23).txt").write_text(
+                REPORTE_EJEMPLO.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            registros = cargar_reportes(carpeta)
+            (resultado,) = buscar_items(registros, ["37014"])
+            self.assertEqual(resultado.fecha_inicio, date(2026, 8, 3))
+            self.assertEqual(resultado.fecha_fin, date(2026, 8, 6))
+            self.assertFalse(hasattr(resultado, "periodo"))
+            self.assertIn("20-23", registros[0].aviso_periodo)
+
+    def test_sin_aviso_cuando_el_nombre_coincide(self):
+        registros = cargar_reportes(REPORTE_EJEMPLO.parent)
+        self.assertEqual(registros[0].aviso_periodo, "")
 
     def test_excluir_no_encontrados(self):
         registros = cargar_reportes(REPORTE_EJEMPLO.parent)
@@ -196,12 +222,25 @@ class PruebaExportacion(unittest.TestCase):
             libro = load_workbook(ruta)
             self.assertEqual(libro.sheetnames, ["Resultados", "Resumen", "Archivos"])
             hoja = libro["Resultados"]
-            encabezados = [c.value for c in hoja[1]][:4]
+            encabezados = [c.value for c in hoja[1]]
             self.assertEqual(
-                encabezados, ["#ID Restaurante", "Restaurante", "# Item", "Ventas (unidades)"]
+                encabezados[:6],
+                [
+                    "#ID Restaurante",
+                    "Restaurante",
+                    "# Item",
+                    "Ventas (unidades)",
+                    "Fecha inicio",
+                    "Fecha fin",
+                ],
             )
+            # Ya no hay columna de "Periodo" en ninguna hoja.
+            for nombre_hoja in libro.sheetnames:
+                self.assertNotIn("Periodo", [c.value for c in libro[nombre_hoja][1]])
             self.assertEqual(hoja.cell(row=2, column=3).value, 37014)
             self.assertEqual(hoja.cell(row=2, column=4).value, 98)
+            self.assertEqual(hoja.cell(row=2, column=5).value, "03/08/2026")
+            self.assertEqual(hoja.cell(row=2, column=6).value, "06/08/2026")
 
 
 if __name__ == "__main__":
