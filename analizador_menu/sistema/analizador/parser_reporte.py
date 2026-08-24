@@ -176,8 +176,17 @@ def _leer_texto(ruta: Path) -> str:
 
 
 def _campo(linea: str, nombre: str) -> str:
+    """Recorta una columna, rescatando el signo negativo si se desbordo.
+
+    Los importes van alineados a la derecha; si un numero negativo es tan largo
+    que llena la columna, el "-" queda en el ultimo caracter de la columna
+    anterior.  En ese caso se recupera para no leer el importe como positivo.
+    """
     inicio, fin = COLUMNAS[nombre]
-    return linea[inicio:fin]
+    texto = linea[inicio:fin]
+    if inicio > 0 and texto[:1].isdigit() and linea[inicio - 1] == "-":
+        texto = "-" + texto
+    return texto
 
 
 # ---------------------------------------------------------------------------

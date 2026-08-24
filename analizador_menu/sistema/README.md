@@ -185,6 +185,26 @@ dedujo, las fechas que venían dentro del reporte, cuántos items se leyeron, si
 hubo algún problema y un **aviso** cuando el periodo del nombre del archivo no
 coincide con las fechas del reporte.
 
+### ¿Por qué hay ventas en negativo?
+
+Porque así vienen en el reporte. Los items de la categoría
+`20--APPROVED PROMO` (y algunos modificadores como `DELIVERY` o los combos de
+niños) son **promociones, descuentos y cortesías**: el sistema registra el
+importe que se descontó de la venta, por eso aparece con signo menos. Las
+unidades siguen siendo positivas, porque son las veces que se aplicó la promo.
+
+```
+   10258 BONELESS <SPECIA   249.00      94.00       0.00  -10534.57   -1.69% ...
+                                                          ^ tal cual en el .txt
+```
+
+En el reporte del ejemplo son 24 items de 712, y sus importes suman
+-46,845.49 contra 670,634.93 de venta positiva; la resta da los 623,789.50 del
+renglón `Category Totals`. El programa no cambia esos signos: si los volviera
+positivos, los totales dejarían de cuadrar con el reporte. Cuando buscas uno de
+esos items, la terminal te lo avisa y en la hoja `Resultados` puedes ver su
+categoría.
+
 ## 5. Cómo se lee el reporte
 
 Los `.txt` vienen paginados (cada página repite el encabezado), pero todas las

@@ -131,6 +131,18 @@ def _mostrar_resumen(resultados, busquedas) -> None:
         print(f"  Unidades vendidas (total):       {total_unidades:,}")
         print(f"  Importe vendido (total):         ${total_importe:,.2f}")
 
+        negativos = [r for r in renglones if r.ventas_importe < 0]
+        if negativos:
+            categorias = sorted({r.categoria for r in negativos if r.categoria})
+            print(
+                "  NOTA: el importe sale en negativo porque asi viene en el reporte:\n"
+                "        son promociones, descuentos o cortesias, y el sistema registra\n"
+                "        lo que se descuento de la venta. Las unidades vendidas si son\n"
+                "        positivas (cuantas veces se aplico)."
+            )
+            if categorias:
+                print(f"        Categoria en el reporte: {', '.join(categorias)}")
+
         principales = sorted(con_venta, key=lambda r: r.unidades_vendidas, reverse=True)[:5]
         if principales:
             print("  Mayores ventas:")

@@ -82,6 +82,25 @@ class PruebaParser(unittest.TestCase):
         self.assertAlmostEqual(item.pct_costo, 37.6976)
         self.assertAlmostEqual(item.utilidad, 21099.24)
 
+    def test_importes_negativos_de_promociones(self):
+        """Las promociones vienen con importe negativo en el propio reporte."""
+        (item,) = self.reporte.buscar_por_numero(10258)
+        self.assertEqual(item.categoria, "20--APPROVED PROMO")
+        self.assertEqual(item.unidades_vendidas, 94)      # unidades positivas
+        self.assertAlmostEqual(item.ventas, -10534.57)    # importe descontado
+        self.assertAlmostEqual(item.utilidad, -10534.57)
+
+    def test_signo_negativo_que_desborda_la_columna(self):
+        """Si el '-' se sale de su columna, no se lee el importe como positivo."""
+        from analizador.parser_reporte import _campo
+
+        linea = (
+            "   99999 ITEM DESBORDADO    99.00      10.00       0.00"
+            "-12345678.90  -1.69%       0.0000       0.00    0.0000%   -2.54%  -1234.56"
+        )
+        self.assertEqual(_campo(linea, "ventas").strip(), "-12345678.90")
+        self.assertEqual(_campo(linea, "pct_ventas_totales").strip(), "-1.69%")
+
     def test_nombre_con_coma(self):
         (item,) = self.reporte.buscar_por_numero(37202)
         self.assertEqual(item.nombre, "ENS, DE LA CASA<")
