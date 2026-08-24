@@ -409,7 +409,7 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             self.assertEqual(fila_oracle.font.b, fila_posi.font.b)
             self.assertEqual(fila_oracle.border.left.style, fila_posi.border.left.style)
 
-    def test_renglones_de_oracle_prellenados(self):
+    def test_renglones_de_oracle_solo_traen_el_restaurante(self):
         from openpyxl import load_workbook
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -428,9 +428,11 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
                 RESTAURANTES_ORACLE,
             )
             for fila in oracle:
-                self.assertEqual(fila[2], 37014)          # item rotulado
-                self.assertEqual(fila[3], "PLATO DE EQUIPO")
-                self.assertIsNone(fila[4])                # ventas vacias
+                # En Oracle el item tiene otra numeracion y otro nombre: se
+                # dejan vacios, igual que las ventas.
+                self.assertIsNone(fila[2])
+                self.assertIsNone(fila[3])
+                self.assertIsNone(fila[4])
                 self.assertIsNone(fila[5])
 
     def test_el_total_es_formula_e_incluye_los_de_oracle(self):

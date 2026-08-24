@@ -215,39 +215,23 @@ def _nombre_de_hoja(busqueda: str, inicio: date | None, fin: date | None, usados
     return nombre
 
 
-def _renglones_oracle(
-    hoja,
-    fila: int,
-    renglones: Sequence[ResultadoItem],
-    busqueda: str,
-) -> int:
+def _renglones_oracle(hoja, fila: int, renglones: Sequence[ResultadoItem]) -> int:
     """Deja los renglones de Oracle rotulados y vacios para capturar a mano.
 
-    Van con el mismo formato que los demas renglones; solo quedan vacias las
-    celdas de ventas.  Devuelve la fila siguiente a los renglones escritos.
+    Solo se llenan el numero y el nombre del restaurante: en Oracle los items
+    tienen otra numeracion y otro nombre, asi que esas celdas -y las de ventas-
+    se dejan vacias.  Van con el mismo formato que los demas renglones.
+
+    Devuelve la fila siguiente a los renglones escritos.
     """
     ya_presentes = {r.restaurante_id for r in renglones}
     pendientes = [(i, n) for i, n in RESTAURANTES_ORACLE if i not in ya_presentes]
     if not pendientes:
         return fila
 
-    # Si se busco un numero de item se rotula tambien el item; si se busco por
-    # nombre puede haber varios, asi que esas celdas se dejan vacias.
-    numeros = {r.item_numero for r in renglones if r.item_numero is not None}
-    numero_item = next(iter(numeros)) if len(numeros) == 1 else None
-    if numero_item is None and busqueda.isdigit():
-        numero_item = int(busqueda)
-    nombre_item = next((r.item_nombre for r in renglones if r.item_nombre), "")
-    if len(numeros) > 1:
-        nombre_item = ""
-
     for identificador, nombre in pendientes:
         hoja.cell(row=fila, column=1, value=identificador)
         hoja.cell(row=fila, column=2, value=nombre)
-        if numero_item is not None:
-            hoja.cell(row=fila, column=3, value=numero_item)
-        if nombre_item:
-            hoja.cell(row=fila, column=4, value=nombre_item)
         hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
         fila += 1
 
@@ -299,7 +283,7 @@ def _hoja_de_combinacion(
         hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
         fila += 1
 
-    fila = _renglones_oracle(hoja, fila, renglones, busqueda)
+    fila = _renglones_oracle(hoja, fila, renglones)
     ultima_fila = fila - 1
 
     # El total va con formula para que se actualice al capturar los de Oracle.

@@ -139,12 +139,12 @@ Item 37014 - PLATO DE EQUIPO  |  del 03/08/2026 al 06/08/2026
 6001            | Merida              | 37014  | PLATO DE EQUIPO | 82                | 33865.87
 6002            | Altabrisa           | 37014  | PLATO DE EQUIPO | 120               | 33865.87
 6013            | Playa del Carmen    | 37014  | PLATO DE EQUIPO | 10                | 33865.87
-6016            | Cancun              | 37014  | PLATO DE EQUIPO |                   |
-6027            | Cumbres             | 37014  | PLATO DE EQUIPO |                   |
-6026            | Riviera Veracruzana | 37014  | PLATO DE EQUIPO |                   |
-6028            | Riviera Maya        | 37014  | PLATO DE EQUIPO |                   |
-6029            | Galerias Queretaro  | 37014  | PLATO DE EQUIPO |                   |
-6030            | Prime center        | 37014  | PLATO DE EQUIPO |                   |
+6016            | Cancun              |        |                 |                   |
+6027            | Cumbres             |        |                 |                   |
+6026            | Riviera Veracruzana |        |                 |                   |
+6028            | Riviera Maya        |        |                 |                   |
+6029            | Galerias Queretaro  |        |                 |                   |
+6030            | Prime center        |        |                 |                   |
 TOTAL           |                     |        |                 | =SUMA(E3:E12)     | =SUMA(F3:F12)
 ```
 
@@ -156,10 +156,11 @@ modos trae todo.
 ### Los restaurantes de Oracle
 
 Los restaurantes que no están en POSI sino en Oracle no se pueden leer de los
-`.txt`, así que cada hoja los deja **ya rotulados** (número de restaurante,
-nombre y el item), con el mismo formato que los demás renglones y las celdas de
-ventas vacías para que las llenes a mano. El renglón `TOTAL` está hecho con
-fórmula, así que **se actualiza solo** conforme capturas.
+`.txt`, así que cada hoja deja su renglón listo con el **número y el nombre del
+restaurante**. Como en Oracle el item tiene otra numeración y otro nombre, esas
+dos celdas se quedan vacías igual que las de ventas, para que captures todo a
+mano. El renglón `TOTAL` está hecho con fórmula, así que **se actualiza solo**
+conforme capturas.
 
 Los seis que vienen configurados son 6016 Cancun, 6027 Cumbres, 6026 Riviera
 Veracruzana, 6028 Riviera Maya, 6029 Galerias Queretaro y 6030 Prime center.
