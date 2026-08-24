@@ -16,8 +16,13 @@ Se necesita Python 3.10 o superior.
 
 ```bash
 cd analizador_menu
-pip install -r requirements.txt
+pip install -r sistema/requirements.txt
 ```
+
+Al abrir la carpeta del programa solo se ven tres cosas: el ejecutable
+`buscar_items.py`, la carpeta `datos/` (donde pones los reportes) y la carpeta
+`resultados/` (donde salen los Excel). Todo lo demás vive dentro de `sistema/`
+y no hay que tocarlo.
 
 ## 2. Preparar la carpeta
 
@@ -45,7 +50,8 @@ datos/
   periodo si así lo prefieres.
 
 El archivo `Diccionario_restaurantes.xlsx` (el que traduce `6001` → `Merida`)
-se busca solo: basta con dejarlo en esta carpeta o junto a los reportes.
+ya viene dentro de `sistema/` y se busca solo; también funciona si lo dejas
+junto a los reportes.
 
 ## 3. Usarlo
 
@@ -85,6 +91,14 @@ volver a leer los archivos.
 python buscar_items.py --carpeta datos --items 37014,37021 --salida ventas_agosto.xlsx
 ```
 
+La ruta de la carpeta se puede pegar **con o sin comillas**, como venga de
+Windows:
+
+```
+Carpeta con los archivos .txt de los reportes [datos]: "C:\Users\velascoh\Desktop\Hora Bostons"
+Carpeta con los archivos .txt de los reportes [datos]: C:\Users\velascoh\Desktop\Hora Bostons
+```
+
 | Opción | Para qué sirve |
 | --- | --- |
 | `--carpeta` | carpeta con los reportes (por defecto `datos`) |
@@ -98,6 +112,9 @@ Los resultados se guardan en `resultados/` cuando no se da una ruta completa.
 
 ## 4. Qué contiene el Excel
 
+Primero van las hojas de producto × periodo y al final las tres hojas
+generales: `Resultados`, `Resumen` y `Archivos`.
+
 **Hoja `Resultados`** — todo junto, un renglón por item / restaurante / periodo:
 
 | #ID Restaurante | Restaurante | # Item | Ventas (unidades) | Fecha inicio | Fecha fin | Nombre del item | Categoria | Subcategoria | Ventas ($) | Precio de menu | Costo total | Utilidad | Busqueda | Encontrado | Archivo |
@@ -110,25 +127,56 @@ item no aparece en un restaurante se
 incluye igual con **0 ventas** y `Encontrado = No`, para que la tabla quede
 completa (con `--sin-vacios` se omiten esos renglones).
 
-**Una hoja por cada producto y cada periodo** — si buscas 2 productos y hay 2
-periodos, salen 4 hojas: `37014 03-08 a 06-08`, `37014 10-08 a 13-08`,
-`37021 03-08 a 06-08`, `37021 10-08 a 13-08`. Y así para los productos y
-periodos que sean. Cada hoja trae el título con el producto y las fechas, el
-detalle por restaurante y un renglón de **TOTAL** al final:
+**Una hoja por cada producto y cada periodo** (van al principio del archivo) —
+si buscas 2 productos y hay 2 periodos, salen 4 hojas: `37014 03-08 a 06-08`,
+`37014 10-08 a 13-08`, `37021 03-08 a 06-08`, `37021 10-08 a 13-08`. Y así para
+los productos y periodos que sean. Estas hojas llegan **hasta la columna
+`Ventas ($)`** (las demás columnas solo están en `Resultados`):
 
 ```
 Item 37014 - PLATO DE EQUIPO  |  del 03/08/2026 al 06/08/2026
-#ID Restaurante | Restaurante      | # Item | Nombre del item | Ventas (unidades) | Ventas ($) | ...
-6001            | Merida           | 37014  | PLATO DE EQUIPO | 82                | 33865.87   | ...
-6002            | Altabrisa        | 37014  | PLATO DE EQUIPO | 120               | 33865.87   | ...
-6013            | Playa del Carmen | 37014  | PLATO DE EQUIPO | 10                | 33865.87   | ...
-TOTAL           |                  |        |                 | 212               | 101597.61  | ...
+#ID Restaurante | Restaurante         | # Item | Nombre del item | Ventas (unidades) | Ventas ($)
+6001            | Merida              | 37014  | PLATO DE EQUIPO | 82                | 33865.87
+6002            | Altabrisa           | 37014  | PLATO DE EQUIPO | 120               | 33865.87
+6013            | Playa del Carmen    | 37014  | PLATO DE EQUIPO | 10                | 33865.87
+Capturar a mano (Oracle)                                          <- renglones en amarillo
+6016            | Cancun              | 37014  | PLATO DE EQUIPO |                   |
+6027            | Cumbres             | 37014  | PLATO DE EQUIPO |                   |
+6026            | Riviera Veracruzana | 37014  | PLATO DE EQUIPO |                   |
+6028            | Riviera Maya        | 37014  | PLATO DE EQUIPO |                   |
+6029            | Galerias Queretaro  | 37014  | PLATO DE EQUIPO |                   |
+6030            | Prime center        | 37014  | PLATO DE EQUIPO |                   |
+TOTAL           |                     |        |                 | =SUMA(E3:E12)     | =SUMA(F3:F12)
 ```
 
 Si buscas por nombre (`alitas`), cada hoja junta todos los productos que
 coinciden en ese periodo. Por seguridad se arman como máximo 150 hojas: si
 pides un rango enorme te avisa en pantalla, y la hoja `Resultados` de todos
 modos trae todo.
+
+### Los restaurantes de Oracle
+
+Los restaurantes que no están en POSI sino en Oracle no se pueden leer de los
+`.txt`, así que cada hoja los deja **ya rotulados en amarillo** (número de
+restaurante, nombre y el item) con las celdas de ventas vacías para que las
+llenes a mano. El renglón `TOTAL` está hecho con fórmula, así que **se
+actualiza solo** conforme capturas.
+
+Los seis que vienen configurados son 6016 Cancun, 6027 Cumbres, 6026 Riviera
+Veracruzana, 6028 Riviera Maya, 6029 Galerias Queretaro y 6030 Prime center.
+Para agregar o quitar alguno se edita la lista de
+`sistema/analizador/configuracion.py`:
+
+```python
+RESTAURANTES_ORACLE: list[tuple[str, str]] = [
+    ("6016", "Cancun"),
+    ("6027", "Cumbres"),
+    ...
+]
+```
+
+Si algún día uno de ellos empieza a aparecer en los reportes, el programa lo
+detecta y ya no lo repite como renglón para capturar.
 
 **Hoja `Resumen`** — totales por item y periodo (fecha inicio / fecha fin): en
 cuántos restaurantes se vendió, unidades e importe.
@@ -164,22 +212,26 @@ pruebas).
 
 ```
 analizador_menu/
-├── buscar_items.py              programa principal (interactivo y por terminal)
-├── analizador/
-│   ├── parser_reporte.py        lectura de los .txt de ancho fijo
-│   ├── nombre_archivo.py        "6001 (3-6).txt" -> restaurante + periodo
-│   ├── diccionario.py           Excel de restaurantes (#ID -> nombre)
-│   ├── busqueda.py              búsqueda de items en todos los archivos
-│   └── exportar_excel.py        generación del Excel de resultados
-├── datos/                       aquí van los .txt descargados
-├── resultados/                  aquí se guardan los Excel generados
-├── tests/                       pruebas automáticas
-├── Diccionario_restaurantes.xlsx
-└── requirements.txt
+├── buscar_items.py              <- lo único que se ejecuta
+├── datos/                       <- aquí van los .txt descargados
+├── resultados/                  <- aquí se guardan los Excel generados
+└── sistema/                     (el motor: no hace falta abrirlo)
+    ├── analizador/
+    │   ├── parser_reporte.py    lectura de los .txt de ancho fijo
+    │   ├── nombre_archivo.py    "6001 (3-6).txt" -> número de restaurante
+    │   ├── diccionario.py       Excel de restaurantes (#ID -> nombre)
+    │   ├── busqueda.py          búsqueda de items en todos los archivos
+    │   ├── exportar_excel.py    generación del Excel de resultados
+    │   └── configuracion.py     lista de restaurantes de Oracle
+    ├── tests/                   pruebas automáticas
+    ├── Diccionario_restaurantes.xlsx
+    ├── requirements.txt
+    └── README.md                este archivo
 ```
 
 ## 7. Pruebas
 
 ```bash
+cd sistema
 python -m unittest discover tests
 ```

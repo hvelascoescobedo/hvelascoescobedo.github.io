@@ -17,7 +17,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# El motor del programa vive en la carpeta "sistema" para no estorbar aqui.
+CARPETA_BASE = Path(__file__).resolve().parent
+CARPETA_SISTEMA = CARPETA_BASE / "sistema"
+sys.path.insert(0, str(CARPETA_SISTEMA))
 
 from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
 from analizador.diccionario import DiccionarioRestaurantes
@@ -28,11 +31,24 @@ from analizador.exportar_excel import (
 )
 
 CARPETA_POR_DEFECTO = "datos"
+COMILLAS = "\"'\u201c\u201d\u2018\u2019\u00ab\u00bb"
 
 
 # ---------------------------------------------------------------------------
 # Ayudas de terminal
 # ---------------------------------------------------------------------------
+
+
+def _limpiar_ruta(texto: str) -> str:
+    """Acepta la ruta con o sin comillas.
+
+    Windows copia las rutas como "C:\\Users\\...\\Hora Bostons"; se quitan las
+    comillas (rectas o tipograficas) y los espacios sobrantes de los extremos.
+    """
+    limpio = texto.strip()
+    while len(limpio) >= 2 and limpio[0] in COMILLAS and limpio[-1] in COMILLAS:
+        limpio = limpio[1:-1].strip()
+    return limpio.strip(COMILLAS).strip()
 
 
 def _titulo(texto: str) -> None:
@@ -45,7 +61,7 @@ def _titulo(texto: str) -> None:
 def _preguntar(mensaje: str, por_defecto: str = "") -> str:
     sufijo = f" [{por_defecto}]" if por_defecto else ""
     try:
-        respuesta = input(f"{mensaje}{sufijo}: ").strip()
+        respuesta = _limpiar_ruta(input(f"{mensaje}{sufijo}: "))
     except EOFError:
         return por_defecto
     return respuesta or por_defecto
@@ -53,9 +69,9 @@ def _preguntar(mensaje: str, por_defecto: str = "") -> str:
 
 def _pedir_carpeta(inicial: str | None) -> Path:
     """Devuelve la carpeta de reportes; si no vino por --carpeta, la pregunta."""
-    base = Path(__file__).resolve().parent
+    base = CARPETA_BASE
     if inicial:
-        candidata = inicial
+        candidata = _limpiar_ruta(inicial)
     else:
         candidata = _preguntar(
             "Carpeta con los archivos .txt de los reportes", CARPETA_POR_DEFECTO
@@ -154,7 +170,7 @@ def construir_argumentos() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argumentos = construir_argumentos().parse_args(argv)
-    base = Path(__file__).resolve().parent
+    base = CARPETA_BASE
 
     _titulo("BUSCADOR DE VENTAS POR ITEM")
 
@@ -164,9 +180,9 @@ def main(argv: list[str] | None = None) -> int:
     # Diccionario de restaurantes (#ID -> nombre).
     diccionario = None
     if argumentos.diccionario:
-        diccionario = DiccionarioRestaurantes.desde_excel(argumentos.diccionario)
+        diccionario = DiccionarioRestaurantes.desde_excel(_limpiar_ruta(argumentos.diccionario))
     else:
-        for lugar in (carpeta, base, base / "datos"):
+        for lugar in (carpeta, CARPETA_SISTEMA, base, base / "datos"):
             diccionario = DiccionarioRestaurantes.localizar(lugar)
             if diccionario:
                 break
@@ -220,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             salida = _preguntar("\nNombre del archivo de Excel", salida_por_defecto)
         else:
             salida = salida_por_defecto
-        ruta_salida = Path(salida).expanduser()
+        ruta_salida = Path(_limpiar_ruta(salida)).expanduser()
         if not ruta_salida.is_absolute():
             ruta_salida = base / "resultados" / ruta_salida
 

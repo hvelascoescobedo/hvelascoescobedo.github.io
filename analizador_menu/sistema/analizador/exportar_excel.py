@@ -1,15 +1,17 @@
 """Generacion del archivo de Excel con los resultados de la busqueda.
 
-El libro tiene estas hojas:
+El libro tiene estas hojas, en este orden:
 
-* **Resultados** -- un renglon por item / restaurante / periodo. Las primeras
-  columnas son las pedidas: #ID de restaurante, nombre, numero de item y
-  cuantas ventas (unidades vendidas).
+* **Una hoja por cada combinacion de producto y periodo** (van al principio) --
+  si se buscan 2 productos y hay 2 periodos, salen 4 hojas (producto 1 periodo
+  1, producto 1 periodo 2, producto 2 periodo 1, producto 2 periodo 2). Cada
+  una llega hasta la columna "Ventas ($)" e incluye los renglones de los
+  restaurantes de Oracle listos para capturarse a mano; el total va con formula
+  para que se actualice al llenarlos.
+* **Resultados** -- un renglon por item / restaurante / periodo, con todas las
+  columnas. Las primeras son las pedidas: #ID de restaurante, nombre, numero de
+  item y cuantas ventas (unidades vendidas).
 * **Resumen**    -- total de unidades e importe por item y periodo.
-* **Una hoja por cada combinacion de producto y periodo** -- si se buscan 2
-  productos y hay 2 periodos, salen 4 hojas (producto 1 periodo 1, producto 1
-  periodo 2, producto 2 periodo 1, producto 2 periodo 2), cada una con el
-  detalle por restaurante y su renglon de totales.
 * **Archivos**   -- registro de los archivos leidos.
 
 Las fechas de inicio y fin de cada renglon salen del propio reporte, no del
@@ -24,10 +26,11 @@ from pathlib import Path
 from typing import Sequence
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from .busqueda import RegistroArchivo, ResultadoItem
+from .configuracion import RESTAURANTES_ORACLE
 
 RELLENO_ENCABEZADO = PatternFill("solid", fgColor="1F4E78")
 FUENTE_ENCABEZADO = Font(bold=True, color="FFFFFF")
@@ -71,14 +74,13 @@ COLUMNAS_COMBINACION = [
     ("Nombre del item", 24),
     ("Ventas (unidades)", 18),
     ("Ventas ($)", 14),
-    ("Precio de menu", 15),
-    ("Costo total", 14),
-    ("Utilidad", 14),
-    ("Categoria", 22),
-    ("Subcategoria", 24),
-    ("Encontrado", 12),
-    ("Archivo", 26),
 ]
+COLUMNA_UNIDADES = 5
+COLUMNA_IMPORTE = 6
+
+# Los renglones de Oracle se capturan a mano: van marcados en amarillo.
+RELLENO_ORACLE = PatternFill("solid", fgColor="FFF2CC")
+BORDE_ORACLE = Border(*(Side(style="thin", color="BF8F00"),) * 4)
 
 # Tope de seguridad: Excel se vuelve inmanejable con miles de hojas.
 MAXIMO_HOJAS_COMBINACION = 150
@@ -114,8 +116,7 @@ def _formato_fecha(valor: date | None):
 
 
 def _hoja_resultados(libro: Workbook, resultados: Sequence[ResultadoItem]) -> None:
-    hoja = libro.active
-    hoja.title = "Resultados"
+    hoja = libro.create_sheet("Resultados")
     _escribir_encabezado(hoja, COLUMNAS_RESULTADOS)
 
     for fila, resultado in enumerate(resultados, start=2):
@@ -218,6 +219,54 @@ def _nombre_de_hoja(busqueda: str, inicio: date | None, fin: date | None, usados
     return nombre
 
 
+def _renglones_oracle(
+    hoja,
+    fila: int,
+    renglones: Sequence[ResultadoItem],
+    busqueda: str,
+) -> int:
+    """Deja los renglones de Oracle rotulados y vacios para capturar a mano.
+
+    Devuelve la fila siguiente a los renglones escritos.
+    """
+    ya_presentes = {r.restaurante_id for r in renglones}
+    pendientes = [(i, n) for i, n in RESTAURANTES_ORACLE if i not in ya_presentes]
+    if not pendientes:
+        return fila
+
+    aviso = hoja.cell(row=fila, column=1, value="Capturar a mano (Oracle)")
+    aviso.font = Font(bold=True, italic=True, color="7F6000")
+    for columna in range(1, len(COLUMNAS_COMBINACION) + 1):
+        hoja.cell(row=fila, column=columna).fill = RELLENO_ORACLE
+    fila += 1
+
+    # Si se busco un numero de item se rotula tambien el item; si se busco por
+    # nombre puede haber varios, asi que esas celdas se dejan vacias.
+    numeros = {r.item_numero for r in renglones if r.item_numero is not None}
+    numero_item = next(iter(numeros)) if len(numeros) == 1 else None
+    if numero_item is None and busqueda.isdigit():
+        numero_item = int(busqueda)
+    nombre_item = next((r.item_nombre for r in renglones if r.item_nombre), "")
+    if len(numeros) > 1:
+        nombre_item = ""
+
+    for identificador, nombre in pendientes:
+        hoja.cell(row=fila, column=1, value=identificador)
+        hoja.cell(row=fila, column=2, value=nombre)
+        if numero_item is not None:
+            hoja.cell(row=fila, column=3, value=numero_item)
+        if nombre_item:
+            hoja.cell(row=fila, column=4, value=nombre_item)
+        hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
+        for columna in range(1, len(COLUMNAS_COMBINACION) + 1):
+            celda = hoja.cell(row=fila, column=columna)
+            celda.fill = RELLENO_ORACLE
+            celda.border = BORDE_ORACLE
+        fila += 1
+
+    return fila
+
+
 def _hoja_de_combinacion(
     libro: Workbook,
     busqueda: str,
@@ -247,7 +296,8 @@ def _hoja_de_combinacion(
 
     _escribir_encabezado(hoja, COLUMNAS_COMBINACION, fila=2)
 
-    fila = 3
+    primera_fila = 3
+    fila = primera_fila
     for renglon in sorted(renglones, key=lambda r: (r.restaurante_id, r.item_numero or 0)):
         valores = [
             renglon.restaurante_id,
@@ -256,31 +306,23 @@ def _hoja_de_combinacion(
             renglon.item_nombre,
             renglon.unidades_vendidas,
             round(renglon.ventas_importe, 2),
-            round(renglon.precio_menu, 2),
-            round(renglon.costo_total, 2),
-            round(renglon.utilidad, 2),
-            renglon.categoria,
-            renglon.subcategoria,
-            "Si" if renglon.encontrado else "No",
-            renglon.archivo,
         ]
         for columna, valor in enumerate(valores, start=1):
             hoja.cell(row=fila, column=columna, value=valor)
-        for columna in (6, 7, 8, 9):
-            hoja.cell(row=fila, column=columna).number_format = "#,##0.00"
+        hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
         fila += 1
 
+    fila = _renglones_oracle(hoja, fila, renglones, busqueda)
+    ultima_fila = fila - 1
+
+    # El total va con formula para que se actualice al capturar los de Oracle.
     hoja.cell(row=fila, column=1, value="TOTAL").font = Font(bold=True)
-    totales = {
-        5: sum(r.unidades_vendidas for r in renglones),
-        6: round(sum(r.ventas_importe for r in renglones), 2),
-        8: round(sum(r.costo_total for r in renglones), 2),
-        9: round(sum(r.utilidad for r in renglones), 2),
-    }
-    for columna, valor in totales.items():
-        celda = hoja.cell(row=fila, column=columna, value=valor)
+    for columna in (COLUMNA_UNIDADES, COLUMNA_IMPORTE):
+        letra = get_column_letter(columna)
+        celda = hoja.cell(row=fila, column=columna)
+        celda.value = f"=SUM({letra}{primera_fila}:{letra}{ultima_fila})"
         celda.font = Font(bold=True)
-        if columna != 5:
+        if columna == COLUMNA_IMPORTE:
             celda.number_format = "#,##0.00"
 
 
@@ -367,11 +409,16 @@ def exportar_resultados(
             ruta_salida = ruta_salida.with_name(f"{ruta_salida.stem}_{marca}.xlsx")
 
     libro = Workbook()
+    hoja_vacia = libro.active  # la que crea openpyxl por defecto; se quita al final
+
+    # Primero las hojas de producto x periodo y despues las hojas generales.
+    _hojas_por_combinacion(libro, resultados)
     _hoja_resultados(libro, resultados)
     _hoja_resumen(libro, resultados)
-    _hojas_por_combinacion(libro, resultados)
     if registros:
         _hoja_archivos(libro, registros, resultados)
+
+    libro.remove(hoja_vacia)
     libro.save(ruta_salida)
     return ruta_salida
 

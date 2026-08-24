@@ -9,10 +9,12 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parent.parent
+RAIZ = Path(__file__).resolve().parent.parent          # carpeta "sistema"
+PROYECTO = RAIZ.parent                                  # carpeta del programa
 sys.path.insert(0, str(RAIZ))
 
 from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
+from analizador.configuracion import RESTAURANTES_ORACLE
 from analizador.diccionario import DiccionarioRestaurantes
 from analizador.exportar_excel import (
     MAXIMO_HOJAS_COMBINACION,
@@ -23,7 +25,7 @@ from analizador.exportar_excel import (
 from analizador.nombre_archivo import interpretar_nombre, listar_archivos
 from analizador.parser_reporte import leer_reporte
 
-REPORTE_EJEMPLO = RAIZ / "datos" / "6001 (3-6).txt"
+REPORTE_EJEMPLO = PROYECTO / "datos" / "6001 (3-6).txt"
 DICCIONARIO = RAIZ / "Diccionario_restaurantes.xlsx"
 
 
@@ -227,7 +229,7 @@ class PruebaExportacion(unittest.TestCase):
             libro = load_workbook(ruta)
             self.assertEqual(
                 libro.sheetnames,
-                ["Resultados", "Resumen", "37014 03-08 a 06-08", "Archivos"],
+                ["37014 03-08 a 06-08", "Resultados", "Resumen", "Archivos"],
             )
             hoja = libro["Resultados"]
             encabezados = [c.value for c in hoja[1]]
@@ -249,6 +251,35 @@ class PruebaExportacion(unittest.TestCase):
             self.assertEqual(hoja.cell(row=2, column=4).value, 98)
             self.assertEqual(hoja.cell(row=2, column=5).value, "03/08/2026")
             self.assertEqual(hoja.cell(row=2, column=6).value, "06/08/2026")
+
+
+class PruebaRutasConComillas(unittest.TestCase):
+    """La ruta se puede pegar con o sin comillas (como la copia Windows)."""
+
+    @staticmethod
+    def _limpiar(texto: str) -> str:
+        import importlib.util
+
+        ruta = PROYECTO / "buscar_items.py"
+        especificacion = importlib.util.spec_from_file_location("buscar_items", ruta)
+        modulo = importlib.util.module_from_spec(especificacion)
+        especificacion.loader.exec_module(modulo)
+        return modulo._limpiar_ruta(texto)
+
+    def test_quita_comillas(self):
+        esperado = r"C:\Users\velascoh\Desktop\Hora Bostons"
+        for entrada in (
+            f'"{esperado}"',
+            f"'{esperado}'",
+            f"\u201c{esperado}\u201d",
+            f'  "{esperado}"  ',
+            esperado,
+        ):
+            with self.subTest(entrada=entrada):
+                self.assertEqual(self._limpiar(entrada), esperado)
+
+    def test_no_toca_una_ruta_normal(self):
+        self.assertEqual(self._limpiar("  datos  "), "datos")
 
 
 class PruebaHojasPorCombinacion(unittest.TestCase):
@@ -278,12 +309,12 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             self.assertEqual(
                 libro.sheetnames,
                 [
-                    "Resultados",
-                    "Resumen",
                     "37014 03-08 a 06-08",
                     "37014 10-08 a 13-08",
                     "37021 03-08 a 06-08",
                     "37021 10-08 a 13-08",
+                    "Resultados",
+                    "Resumen",
                     "Archivos",
                 ],
             )
@@ -295,8 +326,10 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             # Solo el restaurante de ese periodo, con sus 98 unidades.
             self.assertEqual(hoja.cell(row=3, column=1).value, "6001")
             self.assertEqual(hoja.cell(row=3, column=5).value, 98)
-            self.assertEqual(hoja.cell(row=4, column=1).value, "TOTAL")
-            self.assertEqual(hoja.cell(row=4, column=5).value, 98)
+            # Fila 4: aviso; filas 5-10: los 6 restaurantes de Oracle vacios.
+            self.assertEqual(hoja.cell(row=4, column=1).value, "Capturar a mano (Oracle)")
+            self.assertEqual(hoja.cell(row=11, column=1).value, "TOTAL")
+            self.assertEqual(hoja.cell(row=11, column=5).value, "=SUM(E3:E10)")
 
     def test_tres_productos_por_dos_periodos_son_seis_hojas(self):
         from openpyxl import load_workbook
@@ -308,6 +341,95 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
             hojas = load_workbook(ruta).sheetnames
             self.assertEqual(len(hojas), 6 + 3)  # 6 combinaciones + las 3 hojas fijas
+
+    def test_columnas_solo_hasta_ventas_en_pesos(self):
+        """Las hojas de producto x periodo llegan hasta 'Ventas ($)'."""
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            libro = load_workbook(ruta)
+
+            hoja = libro["37014 03-08 a 06-08"]
+            encabezados = [c.value for c in hoja[2] if c.value]
+            self.assertEqual(
+                encabezados,
+                [
+                    "#ID Restaurante",
+                    "Restaurante",
+                    "# Item",
+                    "Nombre del item",
+                    "Ventas (unidades)",
+                    "Ventas ($)",
+                ],
+            )
+            # Las columnas G..M siguen estando en Resultados.
+            self.assertIn("Costo total", [c.value for c in libro["Resultados"][1]])
+
+    def test_renglones_de_oracle_prellenados(self):
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            hoja = load_workbook(ruta)["37014 03-08 a 06-08"]
+
+            filas = list(hoja.iter_rows(values_only=True))
+            aviso = next(i for i, f in enumerate(filas) if f[0] == "Capturar a mano (Oracle)")
+            oracle = filas[aviso + 1 : aviso + 1 + len(RESTAURANTES_ORACLE)]
+
+            self.assertEqual(
+                [(f[0], f[1]) for f in oracle],
+                RESTAURANTES_ORACLE,
+            )
+            for fila in oracle:
+                self.assertEqual(fila[2], 37014)          # item rotulado
+                self.assertEqual(fila[3], "PLATO DE EQUIPO")
+                self.assertIsNone(fila[4])                # ventas vacias
+                self.assertIsNone(fila[5])
+
+    def test_el_total_es_formula_e_incluye_los_de_oracle(self):
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            hoja = load_workbook(ruta)["37014 03-08 a 06-08"]
+
+            fila_total = hoja.max_row
+            self.assertEqual(hoja.cell(row=fila_total, column=1).value, "TOTAL")
+            # El rango llega hasta el ultimo renglon de Oracle.
+            self.assertEqual(
+                hoja.cell(row=fila_total, column=5).value, f"=SUM(E3:E{fila_total - 1})"
+            )
+            self.assertEqual(
+                hoja.cell(row=fila_total, column=6).value, f"=SUM(F3:F{fila_total - 1})"
+            )
+
+    def test_no_repite_un_restaurante_de_oracle_que_si_vino_en_los_datos(self):
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            original = REPORTE_EJEMPLO.read_text(encoding="utf-8")
+            (carpeta / "6001 (3-6).txt").write_text(original, encoding="utf-8")
+            (carpeta / "6016 (3-6).txt").write_text(
+                original.replace("#6001", "#6016"), encoding="utf-8"
+            )
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            hoja = load_workbook(ruta)["37014 03-08 a 06-08"]
+
+            identificadores = [f[0] for f in hoja.iter_rows(values_only=True)]
+            self.assertEqual(identificadores.count("6016"), 1)
 
     def test_busqueda_por_nombre_junta_sus_items_en_una_hoja(self):
         from openpyxl import load_workbook
