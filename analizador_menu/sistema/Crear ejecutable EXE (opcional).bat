@@ -20,7 +20,7 @@ echo Creando el ejecutable, esto tarda unos minutos...
     --distpath "sistema\_build\dist" ^
     --workpath "sistema\_build\work" ^
     --specpath "sistema\_build" ^
-    "sistema\buscar_items.py" || goto :error
+    "%CD%\buscar_items.py" || goto :error
 
 copy /y "sistema\_build\dist\Buscar items.exe" "Buscar items.exe" >nul || goto :error
 echo.

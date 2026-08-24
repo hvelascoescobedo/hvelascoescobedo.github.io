@@ -76,7 +76,7 @@ en `Escritorio\resultados`).
 ### Modo interactivo desde la terminal
 
 ```bash
-python sistema/buscar_items.py
+python buscar_items.py
 ```
 
 ```
@@ -106,7 +106,7 @@ volver a leer los archivos.
 ### Modo directo (sin preguntas, para automatizar)
 
 ```bash
-python sistema/buscar_items.py --carpeta datos --items 37014,37021 --salida ventas_agosto.xlsx
+python buscar_items.py --carpeta datos --items 37014,37021 --salida ventas_agosto.xlsx
 ```
 
 La ruta de la carpeta se puede pegar **con o sin comillas**, como venga de
@@ -250,11 +250,11 @@ pruebas).
 
 ```
 analizador_menu/
-├── Buscar items.bat             <- doble clic aquí
+├── Buscar items.bat             <- doble clic aquí (Windows)
+├── buscar_items.py              <- el programa, por si lo corres a mano
 ├── datos/                       <- aquí van los .txt descargados
 ├── resultados/                  <- aquí se guardan los Excel generados
 └── sistema/                     (el motor: no hace falta abrirlo)
-    ├── buscar_items.py          programa principal
     ├── Crear acceso directo en el Escritorio.bat
     ├── Crear ejecutable EXE (opcional).bat
     ├── analizador/

@@ -14,7 +14,7 @@ rem --- Si falta openpyxl se instala solo la primera vez ---
     %PY% -m pip install --quiet -r "sistema\requirements.txt"
 )
 
-%PY% "sistema\buscar_items.py" %*
+%PY% "buscar_items.py" %*
 goto :fin
 
 :sin_python

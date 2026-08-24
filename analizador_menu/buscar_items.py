@@ -4,11 +4,11 @@
 En Windows basta con dar doble clic en "Buscar items.bat".  Tambien se puede
 llamar a mano:
 
-    python sistema/buscar_items.py
+    python buscar_items.py
 
 Uso directo desde la terminal (sin preguntas):
 
-    python sistema/buscar_items.py --carpeta datos --items 37014,37021 --salida ventas.xlsx
+    python buscar_items.py --carpeta datos --items 37014,37021 --salida ventas.xlsx
 """
 
 from __future__ import annotations
@@ -18,10 +18,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# El programa vive en la carpeta "sistema"; "datos" y "resultados" estan un
-# nivel arriba, junto al acceso directo que se ejecuta con doble clic.
-CARPETA_SISTEMA = Path(__file__).resolve().parent
-CARPETA_BASE = CARPETA_SISTEMA.parent
+# Aqui viven "datos" y "resultados"; el motor esta en la carpeta "sistema".
+CARPETA_BASE = Path(__file__).resolve().parent
+CARPETA_SISTEMA = CARPETA_BASE / "sistema"
 if getattr(sys, "frozen", False):  # ejecutable creado con PyInstaller
     CARPETA_BASE = Path(sys.executable).resolve().parent
     CARPETA_SISTEMA = CARPETA_BASE / "sistema"
