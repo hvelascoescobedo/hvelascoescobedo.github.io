@@ -55,10 +55,28 @@ junto a los reportes.
 
 ## 3. Usarlo
 
-### Modo interactivo (el programa pregunta todo)
+### Con doble clic (Windows)
+
+Doble clic en **`Buscar items.bat`** y listo: se abre la ventana negra y el
+programa empieza a preguntar. La primera vez instala solo lo que le falte, y si
+no encuentras Python instalado te lo dice con la liga para descargarlo.
+
+Para no entrar a la carpeta cada vez, corre una sola vez
+`sistema\Crear acceso directo en el Escritorio.bat`: te deja el acceso directo
+**Buscar items** en el Escritorio (lo puedes mover a donde quieras, sigue
+apuntando a esta carpeta).
+
+Si la computadora no tiene Python y no se puede instalar, corre una vez
+`sistema\Crear ejecutable EXE (opcional).bat`: genera **`Buscar items.exe`**,
+que ya no necesita Python. Ese `.exe` se puede llevar a otra computadora o al
+Escritorio; busca las carpetas `datos` y `resultados` junto a él (si lo dejas
+suelto en el Escritorio, le tecleas la ruta de los reportes y te deja los Excel
+en `Escritorio\resultados`).
+
+### Modo interactivo desde la terminal
 
 ```bash
-python buscar_items.py
+python sistema/buscar_items.py
 ```
 
 ```
@@ -88,7 +106,7 @@ volver a leer los archivos.
 ### Modo directo (sin preguntas, para automatizar)
 
 ```bash
-python buscar_items.py --carpeta datos --items 37014,37021 --salida ventas_agosto.xlsx
+python sistema/buscar_items.py --carpeta datos --items 37014,37021 --salida ventas_agosto.xlsx
 ```
 
 La ruta de la carpeta se puede pegar **con o sin comillas**, como venga de
@@ -232,10 +250,13 @@ pruebas).
 
 ```
 analizador_menu/
-├── buscar_items.py              <- lo único que se ejecuta
+├── Buscar items.bat             <- doble clic aquí
 ├── datos/                       <- aquí van los .txt descargados
 ├── resultados/                  <- aquí se guardan los Excel generados
 └── sistema/                     (el motor: no hace falta abrirlo)
+    ├── buscar_items.py          programa principal
+    ├── Crear acceso directo en el Escritorio.bat
+    ├── Crear ejecutable EXE (opcional).bat
     ├── analizador/
     │   ├── parser_reporte.py    lectura de los .txt de ancho fijo
     │   ├── nombre_archivo.py    "6001 (3-6).txt" -> número de restaurante

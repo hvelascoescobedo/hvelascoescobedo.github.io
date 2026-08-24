@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Buscador interactivo de ventas por item en los reportes de los restaurantes.
 
-Uso interactivo (el programa pregunta todo lo que necesita):
+En Windows basta con dar doble clic en "Buscar items.bat".  Tambien se puede
+llamar a mano:
 
-    python buscar_items.py
+    python sistema/buscar_items.py
 
 Uso directo desde la terminal (sin preguntas):
 
-    python buscar_items.py --carpeta datos --items 37014,37021 --salida ventas.xlsx
+    python sistema/buscar_items.py --carpeta datos --items 37014,37021 --salida ventas.xlsx
 """
 
 from __future__ import annotations
@@ -17,9 +18,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# El motor del programa vive en la carpeta "sistema" para no estorbar aqui.
-CARPETA_BASE = Path(__file__).resolve().parent
-CARPETA_SISTEMA = CARPETA_BASE / "sistema"
+# El programa vive en la carpeta "sistema"; "datos" y "resultados" estan un
+# nivel arriba, junto al acceso directo que se ejecuta con doble clic.
+CARPETA_SISTEMA = Path(__file__).resolve().parent
+CARPETA_BASE = CARPETA_SISTEMA.parent
+if getattr(sys, "frozen", False):  # ejecutable creado con PyInstaller
+    CARPETA_BASE = Path(sys.executable).resolve().parent
+    CARPETA_SISTEMA = CARPETA_BASE / "sistema"
 sys.path.insert(0, str(CARPETA_SISTEMA))
 
 from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
@@ -194,7 +199,10 @@ def main(argv: list[str] | None = None) -> int:
     if argumentos.diccionario:
         diccionario = DiccionarioRestaurantes.desde_excel(_limpiar_ruta(argumentos.diccionario))
     else:
-        for lugar in (carpeta, CARPETA_SISTEMA, base, base / "datos"):
+        lugares = [carpeta, CARPETA_SISTEMA, base, base / "datos"]
+        if getattr(sys, "frozen", False):  # copia incluida dentro del .exe
+            lugares.append(Path(getattr(sys, "_MEIPASS", base)))
+        for lugar in lugares:
             diccionario = DiccionarioRestaurantes.localizar(lugar)
             if diccionario:
                 break

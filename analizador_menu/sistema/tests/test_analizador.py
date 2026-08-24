@@ -279,7 +279,7 @@ class PruebaRutasConComillas(unittest.TestCase):
     def _limpiar(texto: str) -> str:
         import importlib.util
 
-        ruta = PROYECTO / "buscar_items.py"
+        ruta = RAIZ / "buscar_items.py"
         especificacion = importlib.util.spec_from_file_location("buscar_items", ruta)
         modulo = importlib.util.module_from_spec(especificacion)
         especificacion.loader.exec_module(modulo)
