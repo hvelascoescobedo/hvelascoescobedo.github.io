@@ -5,9 +5,9 @@ El libro tiene estas hojas, en este orden:
 * **Una hoja por cada combinacion de producto y periodo** (van al principio) --
   si se buscan 2 productos y hay 2 periodos, salen 4 hojas (producto 1 periodo
   1, producto 1 periodo 2, producto 2 periodo 1, producto 2 periodo 2). Cada
-  una llega hasta la columna "Ventas ($)" e incluye los renglones de los
-  restaurantes de Oracle listos para capturarse a mano; el total va con formula
-  para que se actualice al llenarlos.
+  una llega hasta la columna "Ventas ($)" e incluye, con el mismo formato que
+  los demas, los renglones de los restaurantes de Oracle listos para capturarse
+  a mano; el total va con formula para que se actualice al llenarlos.
 * **Resultados** -- un renglon por item / restaurante / periodo, con todas las
   columnas. Las primeras son las pedidas: #ID de restaurante, nombre, numero de
   item y cuantas ventas (unidades vendidas).
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Sequence
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from .busqueda import RegistroArchivo, ResultadoItem
@@ -77,10 +77,6 @@ COLUMNAS_COMBINACION = [
 ]
 COLUMNA_UNIDADES = 5
 COLUMNA_IMPORTE = 6
-
-# Los renglones de Oracle se capturan a mano: van marcados en amarillo.
-RELLENO_ORACLE = PatternFill("solid", fgColor="FFF2CC")
-BORDE_ORACLE = Border(*(Side(style="thin", color="BF8F00"),) * 4)
 
 # Tope de seguridad: Excel se vuelve inmanejable con miles de hojas.
 MAXIMO_HOJAS_COMBINACION = 150
@@ -227,18 +223,13 @@ def _renglones_oracle(
 ) -> int:
     """Deja los renglones de Oracle rotulados y vacios para capturar a mano.
 
-    Devuelve la fila siguiente a los renglones escritos.
+    Van con el mismo formato que los demas renglones; solo quedan vacias las
+    celdas de ventas.  Devuelve la fila siguiente a los renglones escritos.
     """
     ya_presentes = {r.restaurante_id for r in renglones}
     pendientes = [(i, n) for i, n in RESTAURANTES_ORACLE if i not in ya_presentes]
     if not pendientes:
         return fila
-
-    aviso = hoja.cell(row=fila, column=1, value="Capturar a mano (Oracle)")
-    aviso.font = Font(bold=True, italic=True, color="7F6000")
-    for columna in range(1, len(COLUMNAS_COMBINACION) + 1):
-        hoja.cell(row=fila, column=columna).fill = RELLENO_ORACLE
-    fila += 1
 
     # Si se busco un numero de item se rotula tambien el item; si se busco por
     # nombre puede haber varios, asi que esas celdas se dejan vacias.
@@ -258,10 +249,6 @@ def _renglones_oracle(
         if nombre_item:
             hoja.cell(row=fila, column=4, value=nombre_item)
         hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
-        for columna in range(1, len(COLUMNAS_COMBINACION) + 1):
-            celda = hoja.cell(row=fila, column=columna)
-            celda.fill = RELLENO_ORACLE
-            celda.border = BORDE_ORACLE
         fila += 1
 
     return fila

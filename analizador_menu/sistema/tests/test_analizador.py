@@ -326,10 +326,11 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             # Solo el restaurante de ese periodo, con sus 98 unidades.
             self.assertEqual(hoja.cell(row=3, column=1).value, "6001")
             self.assertEqual(hoja.cell(row=3, column=5).value, 98)
-            # Fila 4: aviso; filas 5-10: los 6 restaurantes de Oracle vacios.
-            self.assertEqual(hoja.cell(row=4, column=1).value, "Capturar a mano (Oracle)")
-            self.assertEqual(hoja.cell(row=11, column=1).value, "TOTAL")
-            self.assertEqual(hoja.cell(row=11, column=5).value, "=SUM(E3:E10)")
+            # Filas 4-9: los 6 restaurantes de Oracle, sin ventas todavia.
+            self.assertEqual(hoja.cell(row=4, column=1).value, "6016")
+            self.assertIsNone(hoja.cell(row=4, column=5).value)
+            self.assertEqual(hoja.cell(row=10, column=1).value, "TOTAL")
+            self.assertEqual(hoja.cell(row=10, column=5).value, "=SUM(E3:E9)")
 
     def test_tres_productos_por_dos_periodos_son_seis_hojas(self):
         from openpyxl import load_workbook
@@ -369,6 +370,26 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             # Las columnas G..M siguen estando en Resultados.
             self.assertIn("Costo total", [c.value for c in libro["Resultados"][1]])
 
+    def test_los_renglones_de_oracle_no_llevan_formato_especial(self):
+        """Se ven igual que los demas: sin relleno, sin bordes, sin aviso."""
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = self._carpeta_con_dos_periodos(tmp)
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            hoja = load_workbook(ruta)["37014 03-08 a 06-08"]
+
+            etiquetas = [f[0] for f in hoja.iter_rows(values_only=True)]
+            self.assertNotIn("Capturar a mano (Oracle)", etiquetas)
+
+            fila_posi = hoja.cell(row=3, column=1)      # renglon leido del reporte
+            fila_oracle = hoja.cell(row=4, column=1)    # primer renglon de Oracle
+            self.assertEqual(fila_oracle.fill.fgColor.rgb, fila_posi.fill.fgColor.rgb)
+            self.assertEqual(fila_oracle.font.b, fila_posi.font.b)
+            self.assertEqual(fila_oracle.border.left.style, fila_posi.border.left.style)
+
     def test_renglones_de_oracle_prellenados(self):
         from openpyxl import load_workbook
 
@@ -380,8 +401,8 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             hoja = load_workbook(ruta)["37014 03-08 a 06-08"]
 
             filas = list(hoja.iter_rows(values_only=True))
-            aviso = next(i for i, f in enumerate(filas) if f[0] == "Capturar a mano (Oracle)")
-            oracle = filas[aviso + 1 : aviso + 1 + len(RESTAURANTES_ORACLE)]
+            # Van al final, justo antes del renglon de totales.
+            oracle = filas[-1 - len(RESTAURANTES_ORACLE) : -1]
 
             self.assertEqual(
                 [(f[0], f[1]) for f in oracle],
