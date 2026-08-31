@@ -1,0 +1,4 @@
+# Aquí se guardan los .qry generados (una subcarpeta por campaña).
+# No se suben al repositorio, solo viven en tu computadora.
+*
+!.gitignore
