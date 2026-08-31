@@ -23,19 +23,41 @@ Si prefieres correrlo directo: `python3 generador_qry.py`
 
 ## Qué te va a preguntar
 
-1. **Fecha de inicio**: primero el **día**, luego el **mes** (1 = enero … 12 = diciembre)
-   y luego el **año**. Lo mismo para la **fecha de fin**.
+Todas las preguntas dicen exactamente qué escribir. Las de sí/no se contestan
+escribiendo `si` o `no`.
+
+1. **Fechas** — primero la de inicio y luego la de fin, cada una en tres pasos:
+
+   ```
+   --- Fecha de INICIO ---
+     Día (escribe el número del día, 1-31): 3
+     Meses:
+         1. Enero          2. Febrero        3. Marzo
+         4. Abril          5. Mayo           6. Junio
+         7. Julio          8. Agosto         9. Septiembre
+        10. Octubre       11. Noviembre     12. Diciembre
+     Mes (escribe el número del mes, 1-12): 8
+     Año (escribe el año, ejemplo 2026): 2026
+     = Fecha de inicio: 3 de Agosto de 2026
+   ```
+
    Valida días imposibles (31 de febrero) y que el fin no sea anterior al inicio.
-2. **Productos**: escribe un `discNum` por línea, o varios de un jalón separados por
-   coma o espacio (`207, 206, 310`). Enter en blanco para terminar.
-   Cada producto se agrega como un filtro `EQUAL … OR`, igual que en la consulta original.
-3. **Dónde guardarlo**:
-   * *Carpeta existente* → te muestra la lista numerada de lo que hay dentro de `codigos/`
-     y eliges por número.
-   * *Carpeta nueva* → le pones nombre (ej. `Hora Bostons`) y se crea sola.
-4. **¿Generar otra consulta?** → puedes hacer todas las que quieras en una sola corrida.
-   A partir de la segunda te ofrece **reusar** fechas, productos o carpeta, para cuando
-   solo cambia una de las tres cosas.
+
+2. **Productos** — `discNum del producto #1:` … escribe uno por línea, o varios de
+   un jalón separados por coma o espacio (`207, 206, 310`). Enter en blanco para
+   terminar de agregar. Cada producto se agrega como un filtro `EQUAL … OR`, igual
+   que en la consulta original.
+
+3. **Dónde guardarlo** — `Opción (escribe 1 o 2):`
+   * `1` Carpeta que ya existe → te muestra la lista numerada de lo que hay dentro
+     de `codigos/` y eliges con `Carpeta (escribe el número de la carpeta):`
+   * `2` Carpeta nueva → `Nombre de la nueva carpeta (ejemplo: Hora Bostons):`
+
+4. **`¿Quieres hacer otra consulta? (escribe: si / no):`** — con `si` empieza otra
+   consulta; con `no` se cierra el programa y te muestra el resumen de todo lo que
+   generó. A partir de la segunda consulta te pregunta si quieres **reusar** las
+   fechas, los productos o la carpeta de la anterior, para cuando solo cambia una
+   de las tres cosas.
 
 ## Dónde quedan los archivos
 
@@ -54,7 +76,7 @@ iquery-generador/
 Formato del nombre: `discNum(s) FechaInicio - FechaFin.qry`
 (varios productos se unen con guion: `207-206`; fechas en `dd-mm-aaaa`).
 
-Si un archivo ya existe te pregunta si lo sobrescribes; si dices que no, lo guarda
+Si un archivo ya existe te pregunta si lo reemplazas; si dices que `no`, lo guarda
 como `… (2).qry`.
 
 ## Si necesitas cambiar algo fijo

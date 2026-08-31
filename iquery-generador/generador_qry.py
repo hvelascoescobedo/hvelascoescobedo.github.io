@@ -74,29 +74,31 @@ def leer(mensaje: str) -> str:
 
 
 def pedir_entero(mensaje: str, minimo: int, maximo: int) -> int:
+    """Pide un número. `mensaje` describe qué se debe escribir."""
     while True:
         valor = leer(mensaje)
+        if not valor:
+            print(f"  -> No escribiste nada. Escribe un número del {minimo} al {maximo}.")
+            continue
         if not valor.isdigit():
-            print(f"  -> Escribe un número entre {minimo} y {maximo}.")
+            print(f"  -> '{valor}' no es un número. Escribe un número del {minimo} al {maximo}.")
             continue
         numero = int(valor)
         if not minimo <= numero <= maximo:
-            print(f"  -> Debe estar entre {minimo} y {maximo}.")
+            print(f"  -> Debe ser un número del {minimo} al {maximo}.")
             continue
         return numero
 
 
-def pedir_si_no(mensaje: str, por_defecto: bool = True) -> bool:
-    sufijo = " [S/n]: " if por_defecto else " [s/N]: "
+def pedir_si_no(pregunta: str) -> bool:
+    """Pregunta de sí/no. Siempre hay que responder 'si' o 'no'."""
     while True:
-        respuesta = leer(mensaje + sufijo).lower()
-        if not respuesta:
-            return por_defecto
-        if respuesta in ("s", "si", "sí", "y", "yes"):
+        respuesta = leer(f"{pregunta} (escribe: si / no): ").lower()
+        if respuesta in ("si", "sí", "s", "y", "yes"):
             return True
-        if respuesta in ("n", "no"):
+        if respuesta in ("no", "n"):
             return False
-        print("  -> Responde 's' o 'n'.")
+        print("  -> Escribe 'si' o 'no'.")
 
 
 # ---------------------------------------------------------------------------
@@ -104,17 +106,25 @@ def pedir_si_no(mensaje: str, por_defecto: bool = True) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def mostrar_meses() -> None:
+    """Imprime la lista de meses con su número, en filas de 3."""
+    print("  Meses:")
+    for fila in range(0, 12, 3):
+        celdas = [f"{i + 1:>2}. {MESES[i]:<12}" for i in range(fila, fila + 3)]
+        print("     " + "  ".join(celdas).rstrip())
+
+
 def pedir_fecha(etiqueta: str) -> date:
     """Pregunta día, luego mes (1 = Enero ... 12 = Diciembre) y luego año."""
     while True:
         print(f"\n--- Fecha de {etiqueta} ---")
-        dia = pedir_entero("  Día (1-31): ", 1, 31)
 
-        print("  Mes:  1.Ene  2.Feb  3.Mar  4.Abr   5.May  6.Jun")
-        print("        7.Jul  8.Ago  9.Sep 10.Oct  11.Nov 12.Dic")
-        mes = pedir_entero("  Mes (1-12): ", 1, 12)
+        dia = pedir_entero("  Día (escribe el número del día, 1-31): ", 1, 31)
 
-        anio = pedir_entero("  Año (ej. 2026): ", 2000, 2100)
+        mostrar_meses()
+        mes = pedir_entero("  Mes (escribe el número del mes, 1-12): ", 1, 12)
+
+        anio = pedir_entero("  Año (escribe el año, ejemplo 2026): ", 2000, 2100)
 
         dias_del_mes = calendar.monthrange(anio, mes)[1]
         if dia > dias_del_mes:
@@ -125,7 +135,7 @@ def pedir_fecha(etiqueta: str) -> date:
             continue
 
         fecha = date(anio, mes, dia)
-        print(f"  = {fecha.day} de {MESES[mes - 1]} de {fecha.year}  ({fecha.isoformat()})")
+        print(f"  = Fecha de {etiqueta.lower()}: {fecha.day} de {MESES[mes - 1]} de {fecha.year}")
         return fecha
 
 
@@ -146,16 +156,20 @@ def pedir_rango_fechas() -> tuple[date, date]:
 
 def pedir_discnums() -> list[str]:
     print("\n--- Productos (discNum) ---")
-    print("  Escribe un discNum por línea, o varios separados por coma/espacio.")
-    print("  Deja la línea vacía y presiona Enter para terminar.")
+    print("  Escribe el discNum de un producto y presiona Enter.")
+    print("  Puedes escribir varios de una vez separados por coma o espacio (ej. 207, 206).")
+    print("  Cuando ya no quieras agregar más, deja la línea vacía y presiona Enter.")
 
     discnums: list[str] = []
     while True:
-        entrada = leer(f"  discNum #{len(discnums) + 1} (Enter para terminar): ")
+        entrada = leer(
+            f"  discNum del producto #{len(discnums) + 1} "
+            "(o Enter para terminar de agregar): "
+        )
         if not entrada:
             if discnums:
                 return discnums
-            print("  -> Necesitas al menos un discNum.")
+            print("  -> Necesitas agregar al menos un producto (discNum).")
             continue
 
         for pieza in re.split(r"[,\s;]+", entrada):
@@ -165,12 +179,12 @@ def pedir_discnums() -> list[str]:
                 print(f"  -> '{pieza}' no es un número válido, se omite.")
                 continue
             if pieza in discnums:
-                print(f"  -> {pieza} ya estaba en la lista, se omite.")
+                print(f"  -> El discNum {pieza} ya estaba en la lista, se omite.")
                 continue
             discnums.append(pieza)
 
         if discnums:
-            print(f"  Productos hasta ahora: {', '.join(discnums)}")
+            print(f"  Productos agregados hasta ahora: {', '.join(discnums)}")
 
 
 # ---------------------------------------------------------------------------
@@ -193,29 +207,32 @@ def carpetas_existentes(base: Path) -> list[Path]:
 
 def crear_carpeta_nueva(base: Path) -> Path:
     while True:
-        nombre = limpiar_nombre(leer("  Nombre de la nueva carpeta (ej. Hora Bostons): "))
+        nombre = limpiar_nombre(
+            leer("  Nombre de la nueva carpeta (ejemplo: Hora Bostons): ")
+        )
         if not nombre:
             print("  -> El nombre no puede quedar vacío.")
             continue
         destino = base / nombre
         if destino.exists():
-            print(f"  -> '{nombre}' ya existe; se usará esa carpeta.")
+            print(f"  -> La carpeta '{nombre}' ya existe; se usará esa.")
         destino.mkdir(parents=True, exist_ok=True)
+        print(f"  = Se guardará en: {CARPETA_CODIGOS}/{destino.name}/")
         return destino
 
 
 def elegir_carpeta(base: Path) -> Path:
     base.mkdir(parents=True, exist_ok=True)
-    print(f"\n--- ¿Dónde guardo el archivo?  ({base.name}/) ---")
+    print(f"\n--- ¿Dónde guardo el archivo?  (carpeta {base.name}/) ---")
 
     existentes = carpetas_existentes(base)
     if not existentes:
-        print("  Todavía no hay carpetas dentro de 'codigos'. Vamos a crear la primera.")
+        print(f"  Todavía no hay carpetas dentro de '{base.name}'. Vamos a crear la primera.")
         return crear_carpeta_nueva(base)
 
-    print("  1. Guardar en una carpeta ya existente")
+    print("  1. Guardar en una carpeta que ya existe")
     print("  2. Crear una carpeta nueva")
-    opcion = pedir_entero("  Opción (1-2): ", 1, 2)
+    opcion = pedir_entero("  Opción (escribe 1 o 2): ", 1, 2)
 
     if opcion == 2:
         return crear_carpeta_nueva(base)
@@ -224,8 +241,14 @@ def elegir_carpeta(base: Path) -> Path:
     for i, carpeta in enumerate(existentes, start=1):
         cantidad = len(list(carpeta.glob("*.qry")))
         print(f"    {i}. {carpeta.name}  ({cantidad} .qry)")
-    indice = pedir_entero(f"  Elige una carpeta (1-{len(existentes)}): ", 1, len(existentes))
-    return existentes[indice - 1]
+    indice = pedir_entero(
+        f"  Carpeta (escribe el número de la carpeta, 1-{len(existentes)}): ",
+        1,
+        len(existentes),
+    )
+    elegida = existentes[indice - 1]
+    print(f"  = Se guardará en: {base.name}/{elegida.name}/")
+    return elegida
 
 
 # ---------------------------------------------------------------------------
@@ -317,8 +340,8 @@ def nombre_archivo(discnums: list[str], inicio: date, fin: date) -> str:
 def guardar(contenido: str, carpeta: Path, nombre: str) -> Path:
     destino = carpeta / nombre
     if destino.exists():
-        print(f"\n  !! Ya existe '{destino.name}' en {carpeta.name}/.")
-        if not pedir_si_no("  ¿Lo sobrescribo?", por_defecto=False):
+        print(f"\n  !! Ya existe el archivo '{destino.name}' en {carpeta.name}/.")
+        if not pedir_si_no("  ¿Quieres reemplazarlo?"):
             base, extension = destino.stem, destino.suffix
             contador = 2
             while (carpeta / f"{base} ({contador}){extension}").exists():
@@ -359,22 +382,27 @@ def main() -> None:
 
         # --- Fechas ---
         if inicio and fin and pedir_si_no(
-            f"\n¿Uso las mismas fechas ({inicio.isoformat()} a {fin.isoformat()})?"
+            f"\n¿Quieres usar las mismas fechas de la consulta anterior "
+            f"({inicio.strftime('%d/%m/%Y')} al {fin.strftime('%d/%m/%Y')})?"
         ):
-            print(f"  Fechas: {inicio.isoformat()} a {fin.isoformat()}")
+            print(f"  Fechas: {inicio.strftime('%d/%m/%Y')} al {fin.strftime('%d/%m/%Y')}")
         else:
             inicio, fin = pedir_rango_fechas()
 
         # --- Productos ---
-        if discnums and pedir_si_no(f"\n¿Uso los mismos productos ({', '.join(discnums)})?"):
+        if discnums and pedir_si_no(
+            f"\n¿Quieres usar los mismos productos de la consulta anterior "
+            f"({', '.join(discnums)})?"
+        ):
             print(f"  Productos: {', '.join(discnums)}")
         else:
             discnums = pedir_discnums()
 
         # --- Carpeta ---
-        if carpeta and pedir_si_no(f"\n¿Guardo en la misma carpeta ('{carpeta.name}')?"):
-            pass
-        else:
+        if not (
+            carpeta
+            and pedir_si_no(f"\n¿Quieres guardarlo en la misma carpeta ('{carpeta.name}')?")
+        ):
             carpeta = elegir_carpeta(base)
 
         # --- Generar ---
@@ -385,16 +413,18 @@ def main() -> None:
         print("\n  ✔ Archivo generado:")
         print(f"    {destino}")
         print(f"    Productos : {', '.join(discnums)}")
-        print(f"    Periodo   : {inicio.isoformat()}  a  {fin.isoformat()}")
+        print(f"    Periodo   : {inicio.strftime('%d/%m/%Y')}  al  {fin.strftime('%d/%m/%Y')}")
 
-        if not pedir_si_no("\n¿Generar otra consulta?"):
+        print()
+        if not pedir_si_no("¿Quieres hacer otra consulta?"):
             break
 
     print("\n" + "=" * 62)
     print(f"  LISTO: {len(generados)} archivo(s) generado(s)")
     for archivo in generados:
         print(f"    - {archivo.parent.name}/{archivo.name}")
-    print("=" * 62 + "\n")
+    print("=" * 62)
+    print("  ¡Hasta luego!\n")
 
 
 if __name__ == "__main__":
