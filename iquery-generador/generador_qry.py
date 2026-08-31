@@ -24,7 +24,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-VERSION = "4.0"
+VERSION = "4.1"
 
 # ---------------------------------------------------------------------------
 # CONFIGURACIÓN (esto es lo que se queda fijo en todos los .qry)
@@ -199,7 +199,6 @@ def pedir_discnums() -> list[str]:
         )
         if not entrada:
             if discnums:
-                print()
                 return discnums
             resultado("Necesitas agregar al menos un producto (discNum).")
             continue
@@ -217,6 +216,29 @@ def pedir_discnums() -> list[str]:
 
         if discnums:
             resultado(f"En la lista: {', '.join(discnums)}")
+
+
+def pedir_modo(discnums: list[str]) -> str:
+    """Con 2 o más productos: ¿un solo archivo con el total, o uno por producto?"""
+    juntos = "-".join(discnums) + ".qry"
+    sueltos = [f"{d}.qry" for d in discnums]
+    separados = "  y  ".join(sueltos)
+    if len(separados) > 44:
+        separados = f"{sueltos[0]}, {sueltos[1]}, ...  ({len(sueltos)} archivos)"
+
+    print()
+    nota("Metiste varios productos. ¿Cómo los quieres?")
+    print()
+    print(f"{PROMPT}  1)  Todos juntos en un mismo archivo  (total de la campaña)")
+    print(f"{PROMPT}      -> {juntos}")
+    print()
+    print(f"{PROMPT}  2)  Cada producto en su propio archivo  (uno por reporte)")
+    print(f"{PROMPT}      -> {separados}")
+    print()
+
+    if pedir_entero("Opción (escribe 1 o 2): ", 1, 2) == 1:
+        return "juntos"
+    return "separados"
 
 
 # ---------------------------------------------------------------------------
@@ -394,14 +416,33 @@ def guardar(contenido: str, carpeta: Path, nombre: str) -> Path:
     return destino
 
 
-def mostrar_resumen_archivo(destino: Path, discnums: list[str]) -> None:
+def mostrar_resumen_archivos(creados: list[tuple[Path, list[str]]]) -> None:
     vertical = ESTILO["vertical"]
+    vineta = ESTILO["vineta"]
+    carpeta = creados[0][0].parent
+
     print()
-    print(f"{SANGRIA}{ESTILO['esquina_sup']}{ESTILO['simple']} {ESTILO['ok']} ARCHIVO GENERADO")
-    print(f"{SANGRIA}{vertical}")
-    print(f"{SANGRIA}{vertical}   Archivo    :  {destino.name}")
-    print(f"{SANGRIA}{vertical}   Carpeta    :  {CARPETA_CODIGOS}/{destino.parent.name}")
-    print(f"{SANGRIA}{vertical}   Productos  :  {', '.join(discnums)}")
+    if len(creados) == 1:
+        destino, discnums = creados[0]
+        print(f"{SANGRIA}{ESTILO['esquina_sup']}{ESTILO['simple']} {ESTILO['ok']} ARCHIVO GENERADO")
+        print(f"{SANGRIA}{vertical}")
+        print(f"{SANGRIA}{vertical}   Archivo    :  {destino.name}")
+        print(f"{SANGRIA}{vertical}   Carpeta    :  {CARPETA_CODIGOS}/{carpeta.name}")
+        print(f"{SANGRIA}{vertical}   Productos  :  {', '.join(discnums)}")
+    else:
+        print(
+            f"{SANGRIA}{ESTILO['esquina_sup']}{ESTILO['simple']} {ESTILO['ok']} "
+            f"{len(creados)} ARCHIVOS GENERADOS"
+        )
+        print(f"{SANGRIA}{vertical}")
+        print(f"{SANGRIA}{vertical}   Carpeta    :  {CARPETA_CODIGOS}/{carpeta.name}")
+        print(f"{SANGRIA}{vertical}")
+        for destino, discnums in creados:
+            etiqueta = "producto" if len(discnums) == 1 else "productos"
+            print(
+                f"{SANGRIA}{vertical}   {vineta} {destino.name:<28}"
+                f"({etiqueta} {', '.join(discnums)})"
+            )
     print(f"{SANGRIA}{vertical}")
     print(f"{SANGRIA}{ESTILO['esquina_inf']}{ESTILO['simple'] * (ANCHO - 1)}")
 
@@ -428,9 +469,11 @@ def main() -> None:
     discnums: list[str] = []
     carpeta = None
     generados: list[Path] = []
+    numero_consulta = 0
 
     while True:
-        subtitulo(f"CONSULTA #{len(generados) + 1}")
+        numero_consulta += 1
+        subtitulo(f"CONSULTA #{numero_consulta}")
 
         # --- Paso 1: productos ---
         paso(1, 2, "PRODUCTOS (discNum)")
@@ -443,6 +486,8 @@ def main() -> None:
         else:
             discnums = pedir_discnums()
 
+        modo = pedir_modo(discnums) if len(discnums) > 1 else "juntos"
+
         # --- Paso 2: carpeta ---
         paso(2, 2, "DÓNDE GUARDAR EL ARCHIVO")
         if carpeta:
@@ -454,12 +499,17 @@ def main() -> None:
         else:
             carpeta = elegir_carpeta(base)
 
-        # --- Generar ---
-        contenido = construir_qry(discnums)
-        destino = guardar(contenido, carpeta, nombre_archivo(discnums))
-        generados.append(destino)
+        # --- Generar (un archivo con todo, o uno por producto) ---
+        grupos = [discnums] if modo == "juntos" else [[d] for d in discnums]
 
-        mostrar_resumen_archivo(destino, discnums)
+        creados: list[tuple[Path, list[str]]] = []
+        for grupo in grupos:
+            contenido = construir_qry(grupo)
+            destino = guardar(contenido, carpeta, nombre_archivo(grupo))
+            generados.append(destino)
+            creados.append((destino, grupo))
+
+        mostrar_resumen_archivos(creados)
 
         print()
         if not pedir_si_no("¿Quieres hacer otra consulta?"):

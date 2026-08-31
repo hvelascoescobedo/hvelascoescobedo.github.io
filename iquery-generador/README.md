@@ -1,4 +1,4 @@
-# Generador de consultas .qry para iQuery  (versión 4.0)
+# Generador de consultas .qry para iQuery  (versión 4.1)
 
 Genera archivos `.qry` del subject **Discount Daily Total** listos para abrirse en
 iQuery. El subject, las columnas, el orden y el filtro de sucursales se quedan
@@ -38,7 +38,7 @@ lanzador de la carpeta vieja, seguirás viendo la versión anterior.
 Para saber cuál estás corriendo, mira la primera línea al abrirlo:
 
 ```
-  GENERADOR DE CONSULTAS .qry PARA iQuery   (versión 4.0)
+  GENERADOR DE CONSULTAS .qry PARA iQuery   (versión 4.1)
   Carpeta destino: /ruta/de/la/carpeta/que/se/esta/usando/codigos
 ```
 
@@ -61,16 +61,38 @@ Cada consulta son 2 pasos. Todas las preguntas dicen exactamente qué escribir,
 y las de sí/no se contestan con **`s`** o **`n`**.
 
 **Paso 1 · Productos** — uno por línea, o varios de un jalón separados por coma
-o espacio (`207, 206, 310`). Enter en blanco para terminar. Cada producto se
-agrega como un filtro `EQUAL … OR`, igual que en la consulta original.
+o espacio (`207, 206, 310`). Enter en blanco para terminar.
 
 ```
   [ PASO 1 de 2 ]   PRODUCTOS (discNum)
 
-      Producto #1 (escribe el discNum): 207, 206
-      -> En la lista: 207, 206
+      Producto #1 (escribe el discNum): 206, 207
+      -> En la lista: 206, 207
       Producto #3 (escribe el discNum):
 ```
+
+Si metiste **dos o más**, te pregunta cómo los quieres:
+
+```
+    Metiste varios productos. ¿Cómo los quieres?
+
+        1)  Todos juntos en un mismo archivo  (total de la campaña)
+            -> 206-207.qry
+
+        2)  Cada producto en su propio archivo  (uno por reporte)
+            -> 206.qry  y  207.qry
+
+      Opción (escribe 1 o 2): 2
+```
+
+* **Juntos** = un solo `.qry` con todos los productos como filtros
+  `EQUAL … OR`, igual que en la consulta original: el reporte suma la campaña
+  completa.
+* **Separados** = un `.qry` por producto, cada uno con su propio filtro, para
+  ver cada bebida/variante por su lado.
+
+La pregunta aparece en cada consulta que tenga 2 o más productos, así que puedes
+pedir los mismos productos juntos en una consulta y separados en la siguiente.
 
 **Paso 2 · Dónde guardarlo** — te enseña las carpetas que ya existen y eliges
 si guardas en una de ellas o creas una nueva.
@@ -96,11 +118,12 @@ si guardas en una de ellas o creas una nueva.
 Al terminar te muestra el resumen del archivo y pregunta si sigues:
 
 ```
-  ┌─ ✔ ARCHIVO GENERADO
+  ┌─ ✔ 2 ARCHIVOS GENERADOS
   │
-  │   Archivo    :  207-206.qry
   │   Carpeta    :  codigos/Hora Bostons
-  │   Productos  :  207, 206
+  │
+  │   · 206.qry                     (producto 206)
+  │   · 207.qry                     (producto 207)
   │
   └───────────────────────────────────────────────────────────────
 
@@ -125,8 +148,9 @@ iquery-generador/
         └── 207.qry
 ```
 
-Formato del nombre: **solo el discNum**. Si son varios, se unen con guion:
-`207-206.qry`.
+Formato del nombre: **solo el discNum**. Si pediste varios productos juntos, se
+unen con guion (`206-207.qry`); si los pediste separados, cada archivo lleva su
+propio número (`206.qry`, `207.qry`).
 
 Si en esa carpeta ya existe un archivo con ese nombre te pregunta si lo
 reemplazas; si dices que `n`, lo guarda como `207-206 (2).qry`.
