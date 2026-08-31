@@ -5,10 +5,12 @@ Generador de archivos .qry para iQuery
 ======================================
 
 Reproduce exactamente la estructura del reporte "Discount Daily Total"
-(subject, columnas, orden y filtro de sucursales) y solo cambia:
+(subject, columnas, orden y filtro de sucursales) y solo cambia los
+productos consultados (discNum).
 
-  * el rango de fechas (busDate)
-  * los productos consultados (discNum)
+El rango de fechas ya NO se pregunta: iQuery lo ignora y lo reemplaza por
+la fecha del día, así que el periodo se ajusta dentro de iQuery al abrir
+la consulta. Ver INCLUIR_FILTRO_FECHAS más abajo.
 
 Los archivos se guardan dentro de la carpeta `codigos/`, en la subcarpeta
 (campaña) que elijas en cada corrida.
@@ -16,14 +18,13 @@ Los archivos se guardan dentro de la carpeta `codigos/`, en la subcarpeta
 
 from __future__ import annotations
 
-import calendar
 import json
 import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
 
-VERSION = "3.0"
+VERSION = "4.0"
 
 # ---------------------------------------------------------------------------
 # CONFIGURACIÓN (esto es lo que se queda fijo en todos los .qry)
@@ -49,17 +50,13 @@ ORDENES = [
 # Sucursales (locName) incluidas en la consulta
 SUCURSALES = [7208, 9792, 8937, 11141, 13145, 14275, 3648]
 
+# El filtro de fechas se escribe con la fecha de hoy, igual que hace iQuery,
+# nada más para que el archivo conserve la misma estructura que él exporta.
+# Si algún día quieres generar el .qry SIN ese filtro, pon esto en False.
+INCLUIR_FILTRO_FECHAS = True
+
 # Carpeta raíz donde viven las subcarpetas por campaña
 CARPETA_CODIGOS = "codigos"
-
-# Formato del nombre del archivo: "DiscNums FechaInicio - FechaFin.qry"
-FORMATO_FECHA_ARCHIVO = "%d-%m-%Y"
-SEPARADOR_FECHAS = " - "
-
-MESES = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-]
 
 # ---------------------------------------------------------------------------
 # ESTILO DE LA PANTALLA
@@ -185,63 +182,6 @@ def pedir_si_no(pregunta: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# FECHAS
-# ---------------------------------------------------------------------------
-
-
-def mostrar_meses() -> None:
-    """Lista de meses en tres columnas, para elegir por número."""
-    print()
-    print(f"{PROMPT}Meses:")
-    for fila in range(4):
-        celdas = [
-            f"{i + 1:>2}  {MESES[i]:<13}"
-            for i in (fila, fila + 4, fila + 8)
-        ]
-        print(f"{PROMPT}  " + "".join(celdas).rstrip())
-    print()
-
-
-def pedir_fecha(etiqueta: str) -> date:
-    """Pregunta día, luego mes (1 = Enero ... 12 = Diciembre) y luego año."""
-    while True:
-        print(f"{SANGRIA}  {ESTILO['vineta']} Fecha de {etiqueta}\n")
-
-        dia = pedir_entero("Día (escribe el número del día, 1-31): ", 1, 31)
-
-        mostrar_meses()
-        mes = pedir_entero("Mes (escribe el número del mes, 1-12): ", 1, 12)
-
-        anio = pedir_entero("Año (escribe el año, ejemplo 2026): ", 2000, 2100)
-
-        dias_del_mes = calendar.monthrange(anio, mes)[1]
-        if dia > dias_del_mes:
-            print()
-            resultado(
-                f"{MESES[mes - 1]} de {anio} solo tiene {dias_del_mes} días. "
-                "Vuelve a capturar la fecha."
-            )
-            print()
-            continue
-
-        fecha = date(anio, mes, dia)
-        resultado(f"{fecha.day} de {MESES[mes - 1]} de {fecha.year}")
-        print()
-        return fecha
-
-
-def pedir_rango_fechas() -> tuple[date, date]:
-    while True:
-        inicio = pedir_fecha("INICIO")
-        fin = pedir_fecha("FIN")
-        if fin < inicio:
-            resultado("La fecha de fin es anterior a la de inicio. Captúralas de nuevo.")
-            print()
-            continue
-        return inicio, fin
-
-
-# ---------------------------------------------------------------------------
 # PRODUCTOS (discNum)
 # ---------------------------------------------------------------------------
 
@@ -355,7 +295,7 @@ def elegir_carpeta(base: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def construir_reporte(inicio: date, fin: date, discnums: list[str]) -> dict:
+def construir_reporte(discnums: list[str]) -> dict:
     filtros_producto = [
         {
             "comparison": "EQUAL",
@@ -368,33 +308,37 @@ def construir_reporte(inicio: date, fin: date, discnums: list[str]) -> dict:
         for i, discnum in enumerate(discnums)
     ]
 
+    # Filtros generales: fechas (opcional) + sucursales
+    filtros_generales: list[dict] = []
+
+    if INCLUIR_FILTRO_FECHAS:
+        hoy = date.today().isoformat()
+        filtros_generales.append(
+            {
+                "start": hoy,
+                "end": hoy,
+                "filterName": "dateRangeFilter",
+                "columnName": "busDate",
+                "index": 0,
+            }
+        )
+
+    filtros_generales.append(
+        {
+            "filterItems": SUCURSALES,
+            "filterName": "longFilter",
+            "columnName": "locName",
+            "index": len(filtros_generales),
+        }
+    )
+
     return {
         "subjectName": SUBJECT,
         "columns": COLUMNAS,
         "orders": ORDENES,
         "filters": [
-            {
-                "index": 0,
-                "filters": [
-                    {
-                        "start": inicio.isoformat(),
-                        "end": fin.isoformat(),
-                        "filterName": "dateRangeFilter",
-                        "columnName": "busDate",
-                        "index": 0,
-                    },
-                    {
-                        "filterItems": SUCURSALES,
-                        "filterName": "longFilter",
-                        "columnName": "locName",
-                        "index": 1,
-                    },
-                ],
-            },
-            {
-                "index": 100,
-                "filters": filtros_producto,
-            },
+            {"index": 0, "filters": filtros_generales},
+            {"index": 100, "filters": filtros_producto},
         ],
     }
 
@@ -407,9 +351,9 @@ def sello_de_tiempo() -> str:
     return f"{ahora.month}/{ahora.day}/{ahora.year} {hora12}:{ahora.minute:02d}:{ahora.second:02d} {sufijo}"
 
 
-def construir_qry(inicio: date, fin: date, discnums: list[str]) -> str:
+def construir_qry(discnums: list[str]) -> str:
     reporte = json.dumps(
-        construir_reporte(inicio, fin, discnums),
+        construir_reporte(discnums),
         separators=(",", ":"),
         ensure_ascii=False,
     )
@@ -426,14 +370,9 @@ def construir_qry(inicio: date, fin: date, discnums: list[str]) -> str:
     return "\r\n".join(lineas) + "\r\n"
 
 
-def nombre_archivo(discnums: list[str], inicio: date, fin: date) -> str:
-    productos = "-".join(discnums)
-    rango = (
-        inicio.strftime(FORMATO_FECHA_ARCHIVO)
-        + SEPARADOR_FECHAS
-        + fin.strftime(FORMATO_FECHA_ARCHIVO)
-    )
-    return f"{productos} {rango}.qry"
+def nombre_archivo(discnums: list[str]) -> str:
+    """Solo el número del producto, o los números unidos con guion."""
+    return "-".join(discnums) + ".qry"
 
 
 def guardar(contenido: str, carpeta: Path, nombre: str) -> Path:
@@ -455,7 +394,7 @@ def guardar(contenido: str, carpeta: Path, nombre: str) -> Path:
     return destino
 
 
-def mostrar_resumen_archivo(destino: Path, discnums: list[str], inicio: date, fin: date) -> None:
+def mostrar_resumen_archivo(destino: Path, discnums: list[str]) -> None:
     vertical = ESTILO["vertical"]
     print()
     print(f"{SANGRIA}{ESTILO['esquina_sup']}{ESTILO['simple']} {ESTILO['ok']} ARCHIVO GENERADO")
@@ -463,10 +402,6 @@ def mostrar_resumen_archivo(destino: Path, discnums: list[str], inicio: date, fi
     print(f"{SANGRIA}{vertical}   Archivo    :  {destino.name}")
     print(f"{SANGRIA}{vertical}   Carpeta    :  {CARPETA_CODIGOS}/{destino.parent.name}")
     print(f"{SANGRIA}{vertical}   Productos  :  {', '.join(discnums)}")
-    print(
-        f"{SANGRIA}{vertical}   Periodo    :  "
-        f"{inicio.strftime('%d/%m/%Y')}  al  {fin.strftime('%d/%m/%Y')}"
-    )
     print(f"{SANGRIA}{vertical}")
     print(f"{SANGRIA}{ESTILO['esquina_inf']}{ESTILO['simple'] * (ANCHO - 1)}")
 
@@ -487,8 +422,9 @@ def main() -> None:
     print()
     nota(f"Reporte     :  {SUBJECT}")
     nota(f"Se guarda en:  {base}")
+    print()
+    nota("El rango de fechas se ajusta dentro de iQuery, al abrir la consulta.")
 
-    inicio = fin = None
     discnums: list[str] = []
     carpeta = None
     generados: list[Path] = []
@@ -496,22 +432,8 @@ def main() -> None:
     while True:
         subtitulo(f"CONSULTA #{len(generados) + 1}")
 
-        # --- Paso 1: fechas ---
-        paso(1, 3, "FECHAS")
-        if inicio and fin:
-            nota(
-                f"Consulta anterior:  {inicio.strftime('%d/%m/%Y')}"
-                f"  al  {fin.strftime('%d/%m/%Y')}"
-            )
-            print()
-            if not pedir_si_no("¿Quieres usar esas mismas fechas?"):
-                print()
-                inicio, fin = pedir_rango_fechas()
-        else:
-            inicio, fin = pedir_rango_fechas()
-
-        # --- Paso 2: productos ---
-        paso(2, 3, "PRODUCTOS (discNum)")
+        # --- Paso 1: productos ---
+        paso(1, 2, "PRODUCTOS (discNum)")
         if discnums:
             nota(f"Consulta anterior:  {', '.join(discnums)}")
             print()
@@ -521,8 +443,8 @@ def main() -> None:
         else:
             discnums = pedir_discnums()
 
-        # --- Paso 3: carpeta ---
-        paso(3, 3, "DÓNDE GUARDAR EL ARCHIVO")
+        # --- Paso 2: carpeta ---
+        paso(2, 2, "DÓNDE GUARDAR EL ARCHIVO")
         if carpeta:
             nota(f"Consulta anterior:  {CARPETA_CODIGOS}/{carpeta.name}/")
             print()
@@ -533,11 +455,11 @@ def main() -> None:
             carpeta = elegir_carpeta(base)
 
         # --- Generar ---
-        contenido = construir_qry(inicio, fin, discnums)
-        destino = guardar(contenido, carpeta, nombre_archivo(discnums, inicio, fin))
+        contenido = construir_qry(discnums)
+        destino = guardar(contenido, carpeta, nombre_archivo(discnums))
         generados.append(destino)
 
-        mostrar_resumen_archivo(destino, discnums, inicio, fin)
+        mostrar_resumen_archivo(destino, discnums)
 
         print()
         if not pedir_si_no("¿Quieres hacer otra consulta?"):
@@ -553,6 +475,8 @@ def main() -> None:
     print()
     nota("Los archivos están en:")
     nota(f"  {base}")
+    print()
+    nota("Recuerda ajustar el rango de fechas dentro de iQuery al abrir cada consulta.")
     print()
     nota("¡Hasta luego!")
     print()
