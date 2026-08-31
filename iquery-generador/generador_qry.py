@@ -27,6 +27,8 @@ from pathlib import Path
 # CONFIGURACIÓN (esto es lo que se queda fijo en todos los .qry)
 # ---------------------------------------------------------------------------
 
+VERSION = "2.0"
+
 ORGANIZACION = "BPM"
 SUBJECT = "Discount Daily Total"
 VERSION_PROGRAMA = "20.4.0.166"
@@ -364,7 +366,7 @@ def main() -> None:
     base = Path(__file__).resolve().parent / CARPETA_CODIGOS
 
     print("=" * 62)
-    print("  GENERADOR DE CONSULTAS .qry PARA iQuery")
+    print(f"  GENERADOR DE CONSULTAS .qry PARA iQuery   (versión {VERSION})")
     print(f"  Subject: {SUBJECT}")
     print(f"  Carpeta destino: {base}")
     print("=" * 62)

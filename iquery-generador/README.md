@@ -1,4 +1,4 @@
-# Generador de consultas .qry para iQuery
+# Generador de consultas .qry para iQuery  (versión 2.0)
 
 Genera archivos `.qry` del subject **Discount Daily Total** listos para abrirse en
 iQuery. El subject, las columnas, el orden y el filtro de sucursales se quedan
@@ -20,6 +20,25 @@ Si prefieres correrlo directo: `python3 generador_qry.py`
 
 > La primera vez en macOS/Linux, si el doble clic no funciona, dale permisos con:
 > `chmod +x generar_qry.sh generar_qry.command`
+
+### ¿Estoy corriendo la versión nueva?
+
+Los tres lanzadores (`.sh`, `.command`, `.bat`) **no contienen el programa**: solo
+buscan Python y ejecutan el `generador_qry.py` que esté **en su misma carpeta**.
+Todos los mensajes y preguntas viven en el `.py`.
+
+Por eso, al actualizar, reemplaza la carpeta completa. Si descomprimes el zip
+nuevo junto al viejo, el sistema crea `iquery-generador 2` y, si abres el
+lanzador de la carpeta vieja, seguirás viendo la versión anterior.
+
+Para saber cuál estás corriendo, mira la primera línea al abrirlo:
+
+```
+  GENERADOR DE CONSULTAS .qry PARA iQuery   (versión 2.0)
+  Carpeta destino: /ruta/de/la/carpeta/que/se/esta/usando/codigos
+```
+
+Si el `.py` no está junto al lanzador, este te lo avisa en vez de fallar.
 
 ## Qué te va a preguntar
 
