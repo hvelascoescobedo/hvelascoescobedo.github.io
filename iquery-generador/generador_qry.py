@@ -27,7 +27,7 @@ from pathlib import Path
 # CONFIGURACIÓN (esto es lo que se queda fijo en todos los .qry)
 # ---------------------------------------------------------------------------
 
-VERSION = "2.0"
+VERSION = "2.1"
 
 ORGANIZACION = "BPM"
 SUBJECT = "Discount Daily Total"
@@ -60,6 +60,34 @@ MESES = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
+
+# ---------------------------------------------------------------------------
+# COMPATIBILIDAD CON LA CONSOLA DE WINDOWS
+# ---------------------------------------------------------------------------
+
+
+def preparar_salida() -> None:
+    """Evita que la consola de Windows tumbe el programa por los acentos.
+
+    cmd.exe suele usar cp850/cp437, donde algunos caracteres no existen.
+    Con errors="replace" se imprimen como '?' en lugar de reventar el programa.
+    """
+    for flujo in (sys.stdout, sys.stderr):
+        try:
+            flujo.reconfigure(errors="replace")  # Python 3.7+
+        except Exception:
+            pass
+
+
+def simbolo_ok() -> str:
+    """Palomita si la consola la soporta; si no, texto normal."""
+    codificacion = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        "\u2714".encode(codificacion)
+        return "\u2714"
+    except (UnicodeEncodeError, LookupError):
+        return "OK:"
+
 
 # ---------------------------------------------------------------------------
 # UTILIDADES DE ENTRADA
@@ -363,6 +391,8 @@ def guardar(contenido: str, carpeta: Path, nombre: str) -> Path:
 
 
 def main() -> None:
+    preparar_salida()
+    ok = simbolo_ok()
     base = Path(__file__).resolve().parent / CARPETA_CODIGOS
 
     print("=" * 62)
@@ -412,7 +442,7 @@ def main() -> None:
         destino = guardar(contenido, carpeta, nombre_archivo(discnums, inicio, fin))
         generados.append(destino)
 
-        print("\n  ✔ Archivo generado:")
+        print(f"\n  {ok} Archivo generado:")
         print(f"    {destino}")
         print(f"    Productos : {', '.join(discnums)}")
         print(f"    Periodo   : {inicio.strftime('%d/%m/%Y')}  al  {fin.strftime('%d/%m/%Y')}")

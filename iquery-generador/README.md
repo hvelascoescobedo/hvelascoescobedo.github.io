@@ -1,4 +1,4 @@
-# Generador de consultas .qry para iQuery  (versión 2.0)
+# Generador de consultas .qry para iQuery  (versión 2.1)
 
 Genera archivos `.qry` del subject **Discount Daily Total** listos para abrirse en
 iQuery. El subject, las columnas, el orden y el filtro de sucursales se quedan
@@ -34,11 +34,21 @@ lanzador de la carpeta vieja, seguirás viendo la versión anterior.
 Para saber cuál estás corriendo, mira la primera línea al abrirlo:
 
 ```
-  GENERADOR DE CONSULTAS .qry PARA iQuery   (versión 2.0)
+  GENERADOR DE CONSULTAS .qry PARA iQuery   (versión 2.1)
   Carpeta destino: /ruta/de/la/carpeta/que/se/esta/usando/codigos
 ```
 
 Si el `.py` no está junto al lanzador, este te lo avisa en vez de fallar.
+
+### Nota para Windows
+
+`generar_qry.bat` pone la consola en UTF-8 (`chcp 65001`) antes de arrancar,
+porque `cmd.exe` normalmente usa cp850/cp437 y ahí los acentos y la palomita
+no existen. Además el programa ya no truena si la consola no soporta algún
+carácter: lo reemplaza y sigue.
+
+Si Windows no encuentra Python, el `.bat` te lo dice y te deja la ventana
+abierta con el mensaje (antes solo parpadeaba y se cerraba).
 
 ## Qué te va a preguntar
 
