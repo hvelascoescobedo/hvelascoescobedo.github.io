@@ -225,7 +225,10 @@ def _renglones_oracle(hoja, fila: int, renglones: Sequence[ResultadoItem]) -> in
     Devuelve la fila siguiente a los renglones escritos.
     """
     ya_presentes = {r.restaurante_id for r in renglones}
-    pendientes = [(i, n) for i, n in RESTAURANTES_ORACLE if i not in ya_presentes]
+    pendientes = sorted(
+        (par for par in RESTAURANTES_ORACLE if par[0] not in ya_presentes),
+        key=lambda par: par[0],
+    )
     if not pendientes:
         return fila
 

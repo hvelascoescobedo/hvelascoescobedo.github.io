@@ -423,10 +423,12 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             # Van al final, justo antes del renglon de totales.
             oracle = filas[-1 - len(RESTAURANTES_ORACLE) : -1]
 
+            # Salen ordenados por numero de restaurante.
             self.assertEqual(
                 [(f[0], f[1]) for f in oracle],
-                RESTAURANTES_ORACLE,
+                sorted(RESTAURANTES_ORACLE, key=lambda par: par[0]),
             )
+            self.assertEqual([f[0] for f in oracle], sorted(f[0] for f in oracle))
             for fila in oracle:
                 # En Oracle el item tiene otra numeracion y otro nombre: se
                 # dejan vacios, igual que las ventas.

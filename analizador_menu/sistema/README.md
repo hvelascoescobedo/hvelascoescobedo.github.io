@@ -158,8 +158,8 @@ Item 37014 - PLATO DE EQUIPO  |  del 03/08/2026 al 06/08/2026
 6002            | Altabrisa           | 37014  | PLATO DE EQUIPO | 120               | 33865.87
 6013            | Playa del Carmen    | 37014  | PLATO DE EQUIPO | 10                | 33865.87
 6016            | Cancun              |        |                 |                   |
-6027            | Cumbres             |        |                 |                   |
 6026            | Riviera Veracruzana |        |                 |                   |
+6027            | Cumbres             |        |                 |                   |
 6028            | Riviera Maya        |        |                 |                   |
 6029            | Galerias Queretaro  |        |                 |                   |
 6030            | Prime center        |        |                 |                   |
@@ -180,15 +180,16 @@ dos celdas se quedan vacías igual que las de ventas, para que captures todo a
 mano. El renglón `TOTAL` está hecho con fórmula, así que **se actualiza solo**
 conforme capturas.
 
-Los seis que vienen configurados son 6016 Cancun, 6027 Cumbres, 6026 Riviera
-Veracruzana, 6028 Riviera Maya, 6029 Galerias Queretaro y 6030 Prime center.
-Para agregar o quitar alguno se edita la lista de
+Los seis que vienen configurados son 6016 Cancun, 6026 Riviera Veracruzana,
+6027 Cumbres, 6028 Riviera Maya, 6029 Galerias Queretaro y 6030 Prime center, y
+en la hoja salen ordenados por número. Para agregar o quitar alguno se edita la
+lista de
 `sistema/analizador/configuracion.py`:
 
 ```python
 RESTAURANTES_ORACLE: list[tuple[str, str]] = [
     ("6016", "Cancun"),
-    ("6027", "Cumbres"),
+    ("6026", "Riviera Veracruzana"),
     ...
 ]
 ```

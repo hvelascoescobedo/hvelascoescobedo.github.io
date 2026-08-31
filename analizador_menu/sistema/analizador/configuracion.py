@@ -10,11 +10,12 @@ Para agregar o quitar un restaurante de Oracle basta con editar esta lista.
 
 from __future__ import annotations
 
-# (numero de restaurante, nombre)
+# (numero de restaurante, nombre).  Aparecen en la hoja ordenados por numero,
+# sin importar en que orden se escriban aqui.
 RESTAURANTES_ORACLE: list[tuple[str, str]] = [
     ("6016", "Cancun"),
-    ("6027", "Cumbres"),
     ("6026", "Riviera Veracruzana"),
+    ("6027", "Cumbres"),
     ("6028", "Riviera Maya"),
     ("6029", "Galerias Queretaro"),
     ("6030", "Prime center"),
