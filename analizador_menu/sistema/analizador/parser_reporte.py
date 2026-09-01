@@ -27,6 +27,7 @@ Posiciones de las columnas (validadas contra el reporte completo):
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -177,9 +178,10 @@ def _texto_de_pdf(ruta: Path) -> str:
     try:
         from pypdf import PdfReader
     except ImportError as error:  # pragma: no cover - depende del entorno
+        requisitos = Path(__file__).resolve().parent.parent / "requirements.txt"
         raise ImportError(
-            "Para leer reportes en PDF falta la libreria 'pypdf'. "
-            "Instalala con: pip install -r sistema/requirements.txt"
+            "Para leer reportes en PDF falta la libreria 'pypdf'. Instalala con:\n"
+            f'  {sys.executable} -m pip install -r "{requisitos}"'
         ) from error
 
     lector = PdfReader(str(ruta))

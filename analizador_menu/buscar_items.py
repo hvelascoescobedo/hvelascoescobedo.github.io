@@ -14,6 +14,8 @@ Uso directo desde la terminal (sin preguntas):
 from __future__ import annotations
 
 import argparse
+import importlib
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,6 +27,69 @@ if getattr(sys, "frozen", False):  # ejecutable creado con PyInstaller
     CARPETA_BASE = Path(sys.executable).resolve().parent
     CARPETA_SISTEMA = CARPETA_BASE / "sistema"
 sys.path.insert(0, str(CARPETA_SISTEMA))
+
+ARCHIVO_REQUISITOS = CARPETA_SISTEMA / "requirements.txt"
+# (modulo que se importa, paquete que hay que instalar, para que sirve)
+REQUISITOS = [
+    ("openpyxl", "openpyxl", "generar el Excel de resultados"),
+    ("pypdf", "pypdf", "leer los reportes en PDF"),
+]
+
+
+def _faltantes() -> list[tuple[str, str, str]]:
+    """Requisitos que no estan instalados en esta computadora."""
+    pendientes = []
+    for modulo, paquete, para_que in REQUISITOS:
+        try:
+            importlib.import_module(modulo)
+        except ImportError:
+            pendientes.append((modulo, paquete, para_que))
+    return pendientes
+
+
+def _asegurar_requisitos() -> None:
+    """Revisa las librerias necesarias y ofrece instalarlas al vuelo.
+
+    Se hace antes de importar el resto del programa: si falta una libreria, el
+    import de mas abajo tronaria con un mensaje que no le dice nada a nadie.
+    """
+    if getattr(sys, "frozen", False):  # el .exe ya las trae dentro
+        return
+    pendientes = _faltantes()
+    if not pendientes:
+        return
+
+    print()
+    print("Faltan algunas librerias para que el programa funcione:")
+    for _, paquete, para_que in pendientes:
+        print(f"  - {paquete}: sirve para {para_que}")
+
+    orden = [sys.executable, "-m", "pip", "install", *(p for _, p, _ in pendientes)]
+    if ARCHIVO_REQUISITOS.exists():
+        orden = [sys.executable, "-m", "pip", "install", "-r", str(ARCHIVO_REQUISITOS)]
+
+    try:
+        respuesta = input("\n¿Las instalo ahora? (s/n) [s]: ").strip().lower()
+    except EOFError:
+        respuesta = "s"
+    if respuesta in {"", "s", "si", "sí", "y"}:
+        print("\nInstalando, espera un momento...\n")
+        if subprocess.call(orden) == 0 and not _faltantes():
+            print("\nListo, ya quedaron instaladas.\n")
+            return
+        print("\nNo se pudieron instalar solas.")
+
+    print("\nCorre este comando en la terminal y vuelve a intentar:")
+    print(f'  {sys.executable} -m pip install -r "{ARCHIVO_REQUISITOS}"')
+    print()
+    try:
+        input("Presiona Enter para salir...")
+    except EOFError:
+        pass
+    raise SystemExit(1)
+
+
+_asegurar_requisitos()
 
 from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
 from analizador.diccionario import DiccionarioRestaurantes
