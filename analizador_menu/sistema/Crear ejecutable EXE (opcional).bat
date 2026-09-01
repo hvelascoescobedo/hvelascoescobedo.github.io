@@ -16,6 +16,7 @@ echo Creando el ejecutable, esto tarda unos minutos...
 %PY% -m PyInstaller --noconfirm --onefile --console ^
     --name "Buscar items" ^
     --paths "%CD%\sistema" ^
+    --hidden-import pypdf ^
     --add-data "%CD%\sistema\Diccionario_restaurantes.xlsx;." ^
     --distpath "sistema\_build\dist" ^
     --workpath "sistema\_build\work" ^

@@ -26,6 +26,7 @@ from analizador.nombre_archivo import interpretar_nombre, listar_archivos
 from analizador.parser_reporte import leer_reporte
 
 REPORTE_EJEMPLO = PROYECTO / "datos" / "6001 (3-6).txt"
+REPORTE_PDF = PROYECTO / "datos" / "6012 (17-19).pdf"
 DICCIONARIO = RAIZ / "Diccionario_restaurantes.xlsx"
 
 
@@ -158,6 +159,80 @@ class PruebaParser(unittest.TestCase):
         self.assertEqual([i.inv for i in encontrados], [37014])
 
 
+class PruebaParserPDF(unittest.TestCase):
+    """El mismo reporte, entregado en PDF, se lee igual que el .txt."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.reporte = leer_reporte(REPORTE_PDF)
+
+    def test_encabezado_y_periodo(self):
+        self.assertEqual(self.reporte.restaurante_id, "6012")
+        self.assertIn("SANTA FE", self.reporte.restaurante_encabezado)
+        self.assertEqual(self.reporte.fecha_inicio, date(2026, 8, 17))
+        self.assertEqual(self.reporte.fecha_fin, date(2026, 8, 19))
+
+    def test_columnas_de_un_item(self):
+        (item,) = self.reporte.buscar_por_numero(37014)
+        self.assertEqual(item.nombre, "PLATO DE EQUIPO")
+        self.assertEqual(item.categoria, "1--STARTERS")
+        self.assertEqual(item.subcategoria, "1--TEAM PLATTER")
+        self.assertEqual(item.unidades_vendidas, 4)
+        self.assertAlmostEqual(item.precio_menu, 414.00)
+        self.assertAlmostEqual(item.ventas, 1433.27)
+        self.assertAlmostEqual(item.costo_total, 509.58)
+
+    def test_totales_cuadran_con_el_reporte(self):
+        """La suma de #Sold debe coincidir con el renglon 'Category Totals'."""
+        from analizador.parser_reporte import _leer_texto
+
+        renglon = next(
+            l for l in _leer_texto(REPORTE_PDF).splitlines() if l.startswith("Category Totals")
+        )
+        self.assertAlmostEqual(
+            sum(i.num_vendidos for i in self.reporte.items),
+            float(renglon[34:45].strip()),
+            places=2,
+        )
+
+    def test_todas_las_paginas_se_leen(self):
+        self.assertGreater(len(self.reporte.items), 300)
+        self.assertFalse([i for i in self.reporte.items if not i.categoria])
+
+    def test_no_se_leen_subtotales(self):
+        nombres = {i.nombre.upper() for i in self.reporte.items}
+        self.assertFalse({n for n in nombres if n.startswith(("SUBTOTAL", "TOTAL"))})
+
+
+class PruebaCarpetaMixta(unittest.TestCase):
+    """Se pueden mezclar .txt y .pdf en la misma carpeta."""
+
+    def test_lee_los_dos_formatos(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            (carpeta / "6001 (3-6).txt").write_text(
+                REPORTE_EJEMPLO.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            (carpeta / "6012 (17-19).pdf").write_bytes(REPORTE_PDF.read_bytes())
+
+            self.assertEqual(len(listar_archivos(carpeta)), 2)
+            registros = cargar_reportes(carpeta)
+            self.assertTrue(all(r.reporte for r in registros), [r.error for r in registros])
+
+            resultados = buscar_items(registros, ["37014"])
+            ventas = {(r.restaurante_id, r.fecha_inicio): r.unidades_vendidas for r in resultados}
+            self.assertEqual(ventas[("6001", date(2026, 8, 3))], 98)
+            self.assertEqual(ventas[("6012", date(2026, 8, 17))], 4)
+
+    def test_un_pdf_sin_texto_no_tumba_el_programa(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            (carpeta / "6099 (1-2).pdf").write_bytes(b"%PDF-1.4 archivo roto")
+            (registro,) = cargar_reportes(carpeta)
+            self.assertIsNone(registro.reporte)
+            self.assertTrue(registro.error)
+
+
 class PruebaDiccionario(unittest.TestCase):
     def test_carga_desde_excel(self):
         diccionario = DiccionarioRestaurantes.desde_excel(DICCIONARIO)
@@ -227,22 +302,33 @@ class PruebaBusqueda(unittest.TestCase):
             self.assertIn("20-23", registros[0].aviso_periodo)
 
     def test_sin_aviso_cuando_el_nombre_coincide(self):
-        registros = cargar_reportes(REPORTE_EJEMPLO.parent)
-        self.assertEqual(registros[0].aviso_periodo, "")
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / REPORTE_EJEMPLO.name).write_text(
+                REPORTE_EJEMPLO.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            (registro,) = cargar_reportes(tmp)
+            self.assertEqual(registro.aviso_periodo, "")
 
     def test_excluir_no_encontrados(self):
-        registros = cargar_reportes(REPORTE_EJEMPLO.parent)
-        resultados = buscar_items(registros, ["99999"], incluir_no_encontrados=False)
-        self.assertEqual(resultados, [])
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / REPORTE_EJEMPLO.name).write_text(
+                REPORTE_EJEMPLO.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            registros = cargar_reportes(tmp)
+            resultados = buscar_items(registros, ["99999"], incluir_no_encontrados=False)
+            self.assertEqual(resultados, [])
 
 
 class PruebaExportacion(unittest.TestCase):
     def test_genera_las_hojas_fijas(self):
         from openpyxl import load_workbook
 
-        registros = cargar_reportes(REPORTE_EJEMPLO.parent)
-        resultados = buscar_items(registros, ["37014"])
         with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / REPORTE_EJEMPLO.name).write_text(
+                REPORTE_EJEMPLO.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            registros = cargar_reportes(tmp)
+            resultados = buscar_items(registros, ["37014"])
             ruta = exportar_resultados(resultados, Path(tmp) / "salida", registros)
             self.assertTrue(ruta.exists())
             libro = load_workbook(ruta)

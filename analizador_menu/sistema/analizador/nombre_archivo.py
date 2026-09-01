@@ -31,7 +31,7 @@ RE_PERIODO_SUELTO = re.compile(r"^\s*\d{4}\s*[ _\-.]+(?P<periodo>.+?)\s*$")
 # Dias dentro de la etiqueta del periodo: "3-6", "3 al 6", "Ago 3-6".
 RE_DIAS = re.compile(r"(?P<inicio>\d{1,2})\s*(?:-|a|al|to|~)\s*(?P<fin>\d{1,2})", re.IGNORECASE)
 
-EXTENSIONES_VALIDAS = {".txt", ".prn", ".rpt", ".dat", ".text"}
+EXTENSIONES_VALIDAS = {".txt", ".pdf", ".prn", ".rpt", ".dat", ".text"}
 
 
 @dataclass
@@ -92,8 +92,9 @@ def interpretar_nombre(ruta: str | Path) -> InfoArchivo:
 def listar_archivos(carpeta: str | Path, recursivo: bool = True) -> list[Path]:
     """Devuelve todos los reportes de la carpeta, ordenados por nombre.
 
-    No hace falta indicar los archivos uno por uno: se toman todos los que
-    tengan una extension de texto valida (22 restaurantes x N periodos).
+    No hace falta indicar los archivos uno por uno: se toman todos los .txt y
+    .pdf que haya (22 restaurantes x N periodos), y se pueden mezclar los dos
+    formatos en la misma carpeta.
     """
     carpeta = Path(carpeta)
     if not carpeta.exists():

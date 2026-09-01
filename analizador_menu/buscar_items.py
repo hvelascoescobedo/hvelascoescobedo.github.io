@@ -78,7 +78,7 @@ def _pedir_carpeta(inicial: str | None) -> Path:
         candidata = _limpiar_ruta(inicial)
     else:
         candidata = _preguntar(
-            "Carpeta con los archivos .txt de los reportes", CARPETA_POR_DEFECTO
+            "Carpeta con los reportes (.txt o .pdf)", CARPETA_POR_DEFECTO
         )
     while True:
         carpeta = Path(candidata).expanduser()
@@ -87,7 +87,7 @@ def _pedir_carpeta(inicial: str | None) -> Path:
         if carpeta.is_dir():
             return carpeta
         print(f"  No encontre la carpeta '{candidata}'.")
-        candidata = _preguntar("Carpeta con los archivos .txt de los reportes")
+        candidata = _preguntar("Carpeta con los reportes (.txt o .pdf)")
         if not candidata:
             raise SystemExit("Sin carpeta que procesar. Salgo.")
 
@@ -167,7 +167,9 @@ def construir_argumentos() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Busca cuantas ventas tuvo un item en todos los reportes de una carpeta.",
     )
-    parser.add_argument("--carpeta", help="Carpeta con los archivos .txt (por defecto: datos)")
+    parser.add_argument(
+        "--carpeta", help="Carpeta con los reportes .txt o .pdf (por defecto: datos)"
+    )
     parser.add_argument("--items", help="Items a buscar separados por comas (ej. 37014,37021)")
     parser.add_argument("--salida", help="Nombre del archivo Excel de resultados")
     parser.add_argument("--diccionario", help="Ruta del Diccionario_restaurantes.xlsx")
@@ -217,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
         carpeta, recursivo=not argumentos.no_recursivo, al_avanzar=_avance
     )
     if not registros:
-        print("\nNo hay archivos de reporte (.txt) en esa carpeta.")
+        print("\nNo hay archivos de reporte (.txt o .pdf) en esa carpeta.")
         return 1
 
     correctos = [r for r in registros if r.reporte]

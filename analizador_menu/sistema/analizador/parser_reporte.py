@@ -1,4 +1,8 @@
-"""Lectura de los reportes 'Menu Item Food Cost Analysis' en formato texto.
+"""Lectura de los reportes 'Menu Item Food Cost Analysis'.
+
+Los reportes llegan en .txt o en .pdf.  El PDF trae exactamente la misma
+disposicion de columnas, asi que se extrae su texto respetando el ancho fijo y
+de ahi en adelante se lee igual que un .txt.
 
 El reporte es un listado de ancho fijo paginado: cada pagina repite el
 encabezado del restaurante y de las columnas, pero todas las paginas
@@ -164,9 +168,50 @@ def _a_fecha(texto: str) -> date | None:
         return None
 
 
+def _texto_de_pdf(ruta: Path) -> str:
+    """Extrae el texto de un reporte en PDF conservando el ancho fijo.
+
+    Se usa el modo "layout" de pypdf, que respeta la posicion de cada columna;
+    asi el contenido queda igual que el de un .txt y lo lee el mismo parser.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError as error:  # pragma: no cover - depende del entorno
+        raise ImportError(
+            "Para leer reportes en PDF falta la libreria 'pypdf'. "
+            "Instalala con: pip install -r sistema/requirements.txt"
+        ) from error
+
+    lector = PdfReader(str(ruta))
+    if lector.is_encrypted:
+        try:
+            lector.decrypt("")  # los reportes protegidos con clave vacia
+        except Exception as error:
+            raise ValueError(f"El PDF esta protegido con contrasena: {ruta.name}") from error
+
+    paginas = []
+    for pagina in lector.pages:
+        try:
+            paginas.append(pagina.extract_text(extraction_mode="layout") or "")
+        except TypeError:  # pypdf viejo, sin modo "layout"
+            paginas.append(pagina.extract_text() or "")
+
+    texto = "\n".join(paginas)
+    if not texto.strip():
+        raise ValueError(
+            f"El PDF no trae texto que se pueda leer ({ruta.name}); "
+            "parece escaneado o hecho de imagenes."
+        )
+    return texto
+
+
 def _leer_texto(ruta: Path) -> str:
-    """Lee el archivo probando las codificaciones tipicas de estos reportes."""
-    datos = Path(ruta).read_bytes()
+    """Devuelve el contenido del reporte, venga en .txt o en .pdf."""
+    ruta = Path(ruta)
+    if ruta.suffix.lower() == ".pdf":
+        return _texto_de_pdf(ruta)
+
+    datos = ruta.read_bytes()
     for codificacion in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
         try:
             return datos.decode(codificacion)

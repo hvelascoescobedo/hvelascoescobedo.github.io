@@ -2,7 +2,9 @@
 
 Herramienta en Python para buscar **cuántas ventas tuvo un producto** en los
 reportes *Menu Item Food Cost Analysis* que se descargan de la computadora de
-cada restaurante, y entregar el resultado en un **archivo de Excel**.
+cada restaurante, y entregar el resultado en un **archivo de Excel**. Los
+reportes pueden venir en **`.txt` o en `.pdf`**, e incluso mezclados en la
+misma carpeta.
 
 El programa lee **todos** los archivos de una carpeta (no hay que indicarlos uno
 por uno), sin importar si son 24, 66 o los que sean: reconoce el número de
@@ -26,15 +28,15 @@ y no hay que tocarlo.
 
 ## 2. Preparar la carpeta
 
-Coloca los `.txt` descargados dentro de `datos/` (o de cualquier carpeta que
-prefieras), con la forma de siempre:
+Coloca los reportes descargados dentro de `datos/` (o de cualquier carpeta que
+prefieras), con la forma de siempre. Da igual si son `.txt` o `.pdf`:
 
 ```
 datos/
 ├── 6001 (3-6).txt        ← restaurante 6001, del 3 al 6 de agosto
 ├── 6001 (10-13).txt      ← restaurante 6001, del 10 al 13 de agosto
-├── 6002 (3-6).txt
-├── 6002 (10-13).txt
+├── 6012 (17-19).pdf      ← el mismo reporte, en PDF
+├── 6002 (3-6).pdf
 └── ...
 ```
 
@@ -102,6 +104,18 @@ Se puede buscar:
 
 Al terminar pregunta el nombre del Excel y ofrece hacer otra búsqueda sin
 volver a leer los archivos.
+
+### ¿Y si los reportes vienen en PDF?
+
+No hay que hacer nada distinto: se dejan en la misma carpeta y el programa los
+abre igual. El PDF trae exactamente la misma tabla de columnas fijas, así que
+se le extrae el texto respetando esa disposición y de ahí en adelante se lee
+como cualquier `.txt`. Se pueden tener los dos formatos revueltos.
+
+Lo único que hace falta es la librería `pypdf`, que ya viene en
+`sistema/requirements.txt` y que el `.bat` instala solo la primera vez. Si un
+PDF viniera escaneado (hecho de imágenes, sin texto), el programa lo reporta en
+la hoja `Archivos` en lugar de fallar.
 
 ### Modo directo (sin preguntas, para automatizar)
 
@@ -227,8 +241,9 @@ categoría.
 
 ## 5. Cómo se lee el reporte
 
-Los `.txt` vienen paginados (cada página repite el encabezado), pero todas las
-páginas tienen las mismas columnas de ancho fijo:
+Los reportes vienen paginados (cada página repite el encabezado), pero todas
+las páginas tienen las mismas columnas de ancho fijo, tanto en `.txt` como en
+`.pdf`:
 
 ```
    37014 PLATO DE EQUIPO    399.00      98.00       0.00   33865.87    5.43%     130.2717   12766.63   37.6976%    5.09%   21099.24
@@ -245,7 +260,7 @@ lo que distingue el nivel es la columna donde empiezan los guiones.
 Como verificación, la suma de `#Sold` de todos los items leídos coincide
 exactamente con el renglón `Category Totals` del propio reporte, y cada
 `Subtotal` de categoría coincide con la suma de sus items (se comprueba en las
-pruebas).
+pruebas, con un reporte `.txt` y con uno `.pdf`).
 
 ## 6. Estructura del proyecto
 
