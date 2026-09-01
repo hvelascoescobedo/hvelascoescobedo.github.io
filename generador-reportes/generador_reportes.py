@@ -9,7 +9,7 @@ REPORTSW recibe el periodo del reporte como "hace cuantos dias":
                     |  +-- fin   = hace 13 dias
                     +----- inicio = hace 15 dias
 
-Este programa pide las fechas reales (dd/mm/aaaa), calcula cuantos dias
+Este programa pide las fechas reales (dia, mes y año), calcula cuantos dias
 han pasado desde hoy (segun el reloj de la computadora) y escribe un .BAT
 nuevo con esos numeros ya corregidos.
 """
@@ -55,8 +55,7 @@ PATRON_REPORTSW = re.compile(
     r"(?im)^([ \t]*REPORTSW[ \t]+\S+[ \t]+\S+[ \t]+)(\d+)([ \t]+)(\d+)"
 )
 
-FORMATOS_FECHA = ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y",
-                  "%d/%m/%y", "%d-%m-%y", "%d.%m.%y")
+PRIMER_ANIO = 2000              # año mas antiguo que se acepta al teclear
 
 CARPETA_BASE = os.path.dirname(os.path.abspath(__file__))
 
@@ -65,34 +64,85 @@ CARPETA_BASE = os.path.dirname(os.path.abspath(__file__))
 # Fechas
 # --------------------------------------------------------------------------
 
-def leer_fecha(etiqueta, hoy):
-    """Pide una fecha por teclado hasta que sea valida. None = cancelar."""
+CANCELAR = "__cancelar__"
+ATAJOS = {"hoy": 0, "ayer": 1, "anteayer": 2}
+
+
+def leer_numero(etiqueta, minimo, maximo, con_atajos=False):
+    """Pide un numero entre minimo y maximo.
+
+    Devuelve el numero, la palabra del atajo ('hoy', 'ayer'...) o CANCELAR.
+    """
     while True:
-        texto = input("  %-14s (dd/mm/aaaa): " % etiqueta).strip()
+        texto = input("  %-15s: " % etiqueta).strip()
 
         if texto.lower() in ("salir", "cancelar", "q"):
+            return CANCELAR
+        if con_atajos and texto.lower() in ATAJOS:
+            return texto.lower()
+
+        try:
+            numero = int(texto)
+        except ValueError:
+            print("     -> Escribe solo numeros, del %d al %d." % (minimo, maximo))
+            continue
+
+        if not minimo <= numero <= maximo:
+            print("     -> Tiene que estar entre %d y %d." % (minimo, maximo))
+            continue
+
+        return numero
+
+
+def leer_anio(etiqueta, hoy):
+    """Pide el año. Acepta 2026 o 26. Devuelve el año o CANCELAR."""
+    while True:
+        valor = leer_numero(etiqueta, 0, 9999)
+        if valor == CANCELAR:
+            return CANCELAR
+
+        anio = valor + 2000 if valor < 100 else valor
+        if not PRIMER_ANIO <= anio <= hoy.year:
+            print("     -> Escribe el año completo (%d) o sus dos ultimos"
+                  " digitos (%s)." % (hoy.year, hoy.strftime("%y")))
+            continue
+
+        return anio
+
+
+def leer_fecha(cual, hoy):
+    """Pide dia, mes y año por separado. Devuelve un date o None si se cancela."""
+    while True:
+        dia = leer_numero("Día de %s" % cual, 1, 31, con_atajos=True)
+        if dia == CANCELAR:
+            return None
+        if dia in ATAJOS:
+            fecha = hoy - datetime.timedelta(days=ATAJOS[dia])
+            print("     -> %s" % fecha.strftime("%d/%m/%Y"))
+            return fecha
+
+        mes = leer_numero("Mes de %s" % cual, 1, 12)
+        if mes == CANCELAR:
             return None
 
-        atajos = {"hoy": 0, "ayer": 1, "anteayer": 2}
-        if texto.lower() in atajos:
-            return hoy - datetime.timedelta(days=atajos[texto.lower()])
+        anio = leer_anio("Año de %s" % cual, hoy)
+        if anio == CANCELAR:
+            return None
 
-        for formato in FORMATOS_FECHA:
-            try:
-                fecha = datetime.datetime.strptime(texto, formato).date()
-                break
-            except ValueError:
-                fecha = None
-
-        if fecha is None:
-            print("     -> Fecha no valida. Ejemplo: 15/08/2026\n")
+        try:
+            fecha = datetime.date(anio, mes, dia)
+        except ValueError:
+            print("     -> El %d/%d/%d no existe en el calendario."
+                  " Vamos de nuevo.\n" % (dia, mes, anio))
             continue
 
         if fecha > hoy:
-            print("     -> Esa fecha es del futuro (hoy es %s). "
-                  "REPORTSW solo mira hacia atras.\n" % hoy.strftime("%d/%m/%Y"))
+            print("     -> El %s es del futuro (hoy es %s). REPORTSW solo mira"
+                  " hacia atras. Vamos de nuevo.\n"
+                  % (fecha.strftime("%d/%m/%Y"), hoy.strftime("%d/%m/%Y")))
             continue
 
+        print("     -> %s" % fecha.strftime("%d/%m/%Y"))
         return fecha
 
 
@@ -109,11 +159,12 @@ def dias_txt(n):
 def pedir_periodo(hoy):
     """Devuelve (fecha_inicio, fecha_fin) o None si el usuario cancela."""
     while True:
-        inicio = leer_fecha("Fecha inicio", hoy)
+        inicio = leer_fecha("inicio", hoy)
         if inicio is None:
             return None
+        print()
 
-        fin = leer_fecha("Fecha fin", hoy)
+        fin = leer_fecha("fin", hoy)
         if fin is None:
             return None
 
@@ -238,8 +289,10 @@ def main():
     print("=" * 66)
     print(" GENERADOR DE REPORTES REPORTSW")
     print("=" * 66)
-    print(" Escribe las fechas como dd/mm/aaaa (tambien sirve 'hoy' o 'ayer').")
-    print(" Escribe 'salir' en cualquier fecha para terminar.")
+    print(" Se piden dia, mes y año por separado; solo numeros (15, 8, 2026).")
+    print(" El año puede ir completo (2026) o de dos digitos (26).")
+    print(" Atajo: escribe 'hoy', 'ayer' o 'anteayer' en el dia.")
+    print(" Escribe 'salir' en cualquier pregunta para terminar.")
     print()
 
     generados = 0
