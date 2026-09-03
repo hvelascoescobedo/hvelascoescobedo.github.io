@@ -91,7 +91,12 @@ def _asegurar_requisitos() -> None:
 
 _asegurar_requisitos()
 
-from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
+from analizador.busqueda import (
+    buscar_items,
+    cargar_reportes,
+    detectar_problemas,
+    normalizar_busquedas,
+)
 from analizador.diccionario import DiccionarioRestaurantes
 from analizador.exportar_excel import (
     MAXIMO_HOJAS_COMBINACION,
@@ -183,6 +188,47 @@ def _rango_fechas(renglon) -> str:
     return "(sin fechas en el reporte)"
 
 
+def _etiqueta_restaurante(registro, diccionario) -> str:
+    """'#ID Nombre' del restaurante de un archivo, aunque el ID falte."""
+    id_ = registro.restaurante_id or "(sin ID)"
+    nombre = diccionario.nombre(registro.restaurante_id) if registro.restaurante_id else ""
+    return f"{id_} {nombre}".strip()
+
+
+def _imprimir_problemas(problemas, diccionario) -> None:
+    """Lista, antes de preguntar nada mas, que archivos hay que re-descargar."""
+    vacios = [p for p in problemas if p.motivo == "vacio"]
+    fallidos = [p for p in problemas if p.motivo == "error"]
+
+    _titulo("ARCHIVOS QUE HAY QUE VOLVER A DESCARGAR")
+
+    if vacios:
+        print(
+            "Estos reportes se leyeron sin ningun error, pero llegaron VACIOS\n"
+            "(sin un solo producto adentro): la descarga salio mal.\n"
+        )
+        for problema in vacios:
+            registro = problema.registro
+            print(
+                f"  {_etiqueta_restaurante(registro, diccionario):<32} "
+                f"{_rango_fechas(registro):<28} {registro.info.nombre_archivo}"
+            )
+
+    if fallidos:
+        if vacios:
+            print()
+        print("Estos otros ni siquiera se pudieron abrir:\n")
+        for problema in fallidos:
+            registro = problema.registro
+            print(f"  {_etiqueta_restaurante(registro, diccionario):<32} {registro.info.nombre_archivo}")
+            print(f"      -> {registro.error}")
+
+    print(
+        "\nVuelve a descargar el reporte de esos restaurantes y corre el "
+        "programa otra vez; no hace falta tocar los demas archivos."
+    )
+
+
 def _avance(numero: int, total: int, ruta: Path) -> None:
     print(f"  [{numero:>3}/{total}] {ruta.name}")
 
@@ -254,6 +300,10 @@ def construir_argumentos() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     argumentos = construir_argumentos().parse_args(argv)
     base = CARPETA_BASE
+    # Si ya vinieron los items y el nombre de salida por la terminal, no se
+    # pregunta nada: se usa para automatizar (y tampoco se puede detener a
+    # esperar una respuesta si aparecen archivos con problemas).
+    interactivo = not (argumentos.items and argumentos.salida)
 
     _titulo("BUSCADOR DE VENTAS POR ITEM")
 
@@ -288,7 +338,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     correctos = [r for r in registros if r.reporte]
-    fallidos = [r for r in registros if not r.reporte]
     periodos = sorted({r.periodo_fechas for r in correctos if r.periodo_fechas})
     restaurantes = sorted({r.restaurante_id for r in correctos if r.restaurante_id})
     print(
@@ -296,14 +345,31 @@ def main(argv: list[str] | None = None) -> int:
         f"| periodos (segun el reporte): "
         f"{', '.join(periodos) if periodos else 'sin identificar'}"
     )
-    for registro in fallidos:
-        print(f"  AVISO: no se pudo leer {registro.info.nombre_archivo}: {registro.error}")
     for registro in correctos:
         if registro.aviso_periodo:
             print(f"  AVISO en {registro.info.nombre_archivo}: {registro.aviso_periodo}")
 
+    # Validacion ANTES de preguntar nada mas: si algun reporte llego vacio o
+    # no se pudo leer, se avisa de una vez (no hasta el final, en la hoja
+    # Archivos del Excel) para poder re-descargarlo y correr el programa de
+    # nuevo sin haber perdido tiempo capturando que items buscar.
+    problemas = detectar_problemas(registros)
+    if problemas:
+        _imprimir_problemas(problemas, diccionario)
+        if interactivo:
+            seguir = _preguntar(
+                "\n¿Aun asi quieres continuar, usando solo los restaurantes que "
+                "si se leyeron bien? (s/n)",
+                "n",
+            )
+            if seguir.strip().lower() not in {"s", "si", "sí", "y"}:
+                print(
+                    "\nListo, no se genero ningun Excel. Vuelve a descargar los "
+                    "reportes marcados arriba y corre el programa otra vez."
+                )
+                return 1
+
     # Busqueda (puede repetirse varias veces en la misma sesion).
-    interactivo = not (argumentos.items and argumentos.salida)
     while True:
         busquedas = _pedir_items(argumentos.items)
         print(f"\nBuscando {len(busquedas)} item(s) en {len(correctos)} archivo(s)...")

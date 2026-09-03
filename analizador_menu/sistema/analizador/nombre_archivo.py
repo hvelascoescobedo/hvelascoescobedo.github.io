@@ -28,8 +28,10 @@ RE_ID = re.compile(r"^\s*(?P<id>\d{4})(?!\d)")
 RE_PERIODO_PARENTESIS = re.compile(r"[\(\[](?P<periodo>[^\)\]]+)[\)\]]")
 # Periodo pegado al ID: "6001_3-6", "6001-10-13", "6001 3-6".
 RE_PERIODO_SUELTO = re.compile(r"^\s*\d{4}\s*[ _\-.]+(?P<periodo>.+?)\s*$")
-# Dias dentro de la etiqueta del periodo: "3-6", "3 al 6", "Ago 3-6".
-RE_DIAS = re.compile(r"(?P<inicio>\d{1,2})\s*(?:-|a|al|to|~)\s*(?P<fin>\d{1,2})", re.IGNORECASE)
+# Dias dentro de la etiqueta del periodo: "3-6", "3 al 6", "10_al_13".
+RE_DIAS = re.compile(
+    r"(?P<inicio>\d{1,2})[\s_]*(?:-|a|al|to|~)[\s_]*(?P<fin>\d{1,2})", re.IGNORECASE
+)
 
 EXTENSIONES_VALIDAS = {".txt", ".pdf", ".prn", ".rpt", ".dat", ".text"}
 

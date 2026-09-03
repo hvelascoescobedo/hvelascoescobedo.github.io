@@ -13,7 +13,12 @@ RAIZ = Path(__file__).resolve().parent.parent          # carpeta "sistema"
 PROYECTO = RAIZ.parent                                  # carpeta del programa
 sys.path.insert(0, str(RAIZ))
 
-from analizador.busqueda import buscar_items, cargar_reportes, normalizar_busquedas
+from analizador.busqueda import (
+    buscar_items,
+    cargar_reportes,
+    detectar_problemas,
+    normalizar_busquedas,
+)
 from analizador.configuracion import RESTAURANTES_ORACLE
 from analizador.diccionario import DiccionarioRestaurantes
 from analizador.exportar_excel import (
@@ -28,6 +33,23 @@ from analizador.parser_reporte import leer_reporte
 REPORTE_EJEMPLO = PROYECTO / "datos" / "6001 (3-6).txt"
 REPORTE_PDF = PROYECTO / "datos" / "6012 (17-19).pdf"
 DICCIONARIO = RAIZ / "Diccionario_restaurantes.xlsx"
+FIXTURES = RAIZ / "tests" / "fixtures"
+REPORTE_VACIO_PDF = FIXTURES / "6004_10_al_13.pdf"
+
+# Un reporte que "se genero mal": la descarga corto el encabezado del
+# restaurante (queda "NSO IMAGE 2017" en vez del nombre y el #ID) y no trae
+# un solo producto, pero conserva el periodo y llega a "Category Totals" en
+# cero.  Es el caso real que motivo esta validacion.
+TEXTO_REPORTE_VACIO = """NSO IMAGE 2017                                                                                                             PAGE:   1
+REPORT DATE: 09/02/2026                                                                                     REPORT TIME: 11:10:16.73
+------------------------------------------------------------------------------------------------------------------------------------
+                               Menu Item Food Cost Analysis - Item By Item (% based on Grand Totals)
+                                                For the period:  8/10/26 to 8/13/26
+ Menu Item                    Menu                                     % of        Avg.        Total            % Cont
+    Inv# Name                Price      #Sold       #Del      Sales  Tot Sls    Unit Cost       Cost     Cost %   Margin     Profit
+------------------------------------------------------------------------------------------------------------------------------------
+Category Totals                          0.00       0.00       0.00    0.00%       0.0000       0.00    0.0000%    0.00%       0.00
+"""
 
 
 class PruebaNombreArchivo(unittest.TestCase):
@@ -47,6 +69,8 @@ class PruebaNombreArchivo(unittest.TestCase):
             ("6013-10-13.txt", "10-13"),
             ("6013 (3 al 6).txt", "3-6"),
             ("6013 [Ago 10-13].txt", "10-13"),
+            ("6013_10_al_13.pdf", "10-13"),  # formato real que llega en PDF
+            ("6013_24_al_27.pdf", "24-27"),
         ]:
             with self.subTest(nombre=nombre):
                 info = interpretar_nombre(nombre)
@@ -231,6 +255,104 @@ class PruebaCarpetaMixta(unittest.TestCase):
             (registro,) = cargar_reportes(carpeta)
             self.assertIsNone(registro.reporte)
             self.assertTrue(registro.error)
+
+
+class PruebaReporteVacio(unittest.TestCase):
+    """Un reporte que se descargo mal: sin error, pero sin ningun producto."""
+
+    def test_se_lee_sin_error_pero_sin_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp) / "6004_10_al_13.txt"
+            ruta.write_text(TEXTO_REPORTE_VACIO, encoding="utf-8")
+            reporte = leer_reporte(ruta)
+
+            self.assertEqual(reporte.items, [])
+            # El encabezado corrupto no trae ni nombre ni #ID de restaurante...
+            self.assertIsNone(reporte.restaurante_id)
+            self.assertIsNone(reporte.restaurante_encabezado)
+            # ...pero el periodo si sobrevive, porque esa linea no se corto.
+            self.assertEqual(reporte.fecha_inicio, date(2026, 8, 10))
+            self.assertEqual(reporte.fecha_fin, date(2026, 8, 13))
+
+    def test_pdf_real_vacio_de_ejemplo(self):
+        """Regresion con un PDF real que llego asi de un restaurante."""
+        reporte = leer_reporte(REPORTE_VACIO_PDF)
+        self.assertEqual(reporte.items, [])
+        self.assertEqual(reporte.fecha_inicio, date(2026, 8, 10))
+        self.assertEqual(reporte.fecha_fin, date(2026, 8, 13))
+
+
+class PruebaDetectarProblemas(unittest.TestCase):
+    """Se avisa de los archivos vacios o rotos ANTES de buscar ningun item."""
+
+    def _carpeta_de_prueba(self, tmp: str) -> Path:
+        carpeta = Path(tmp)
+        (carpeta / "6001 (3-6).txt").write_text(
+            REPORTE_EJEMPLO.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        # El restaurante 6004 "salio mal": sin un solo producto adentro.
+        (carpeta / "6004_10_al_13.txt").write_text(TEXTO_REPORTE_VACIO, encoding="utf-8")
+        # Y este ni siquiera se pudo abrir.
+        (carpeta / "6099 (1-2).pdf").write_bytes(b"%PDF-1.4 archivo roto")
+        return carpeta
+
+    def test_esta_vacio_y_tiene_problema(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            registros = cargar_reportes(self._carpeta_de_prueba(tmp))
+            por_archivo = {r.info.nombre_archivo: r for r in registros}
+
+            self.assertFalse(por_archivo["6001 (3-6).txt"].esta_vacio)
+            self.assertFalse(por_archivo["6001 (3-6).txt"].tiene_problema)
+
+            self.assertTrue(por_archivo["6004_10_al_13.txt"].esta_vacio)
+            self.assertTrue(por_archivo["6004_10_al_13.txt"].tiene_problema)
+            self.assertEqual(por_archivo["6004_10_al_13.txt"].error, "")  # no fue un error
+
+            self.assertFalse(por_archivo["6099 (1-2).pdf"].esta_vacio)  # no hay reporte
+            self.assertTrue(por_archivo["6099 (1-2).pdf"].tiene_problema)
+
+    def test_detectar_problemas_clasifica_y_ordena(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            registros = cargar_reportes(self._carpeta_de_prueba(tmp))
+            problemas = detectar_problemas(registros)
+
+            self.assertEqual(len(problemas), 2)
+            motivos = {p.registro.info.nombre_archivo: p.motivo for p in problemas}
+            self.assertEqual(motivos["6004_10_al_13.txt"], "vacio")
+            self.assertEqual(motivos["6099 (1-2).pdf"], "error")
+            # El restaurante 6001, que si esta bien, no aparece en la lista.
+            self.assertNotIn("6001 (3-6).txt", motivos)
+            # Ordenados por #ID de restaurante: primero el 6004, luego el que
+            # no tiene ID identificable.
+            self.assertEqual([p.registro.info.nombre_archivo for p in problemas][0], "6004_10_al_13.txt")
+
+    def test_ningun_problema_cuando_todo_esta_bien(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            (carpeta / "6001 (3-6).txt").write_text(
+                REPORTE_EJEMPLO.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            registros = cargar_reportes(carpeta)
+            self.assertEqual(detectar_problemas(registros), [])
+
+    def test_el_restaurante_vacio_se_identifica_por_el_nombre_del_archivo(self):
+        """Aunque el encabezado del reporte venga corrupto, el #ID sale del
+        nombre del archivo, asi que el diccionario si puede dar el nombre."""
+        with tempfile.TemporaryDirectory() as tmp:
+            registros = cargar_reportes(self._carpeta_de_prueba(tmp))
+            (vacio,) = [r for r in registros if r.esta_vacio]
+            diccionario = DiccionarioRestaurantes.desde_excel(DICCIONARIO)
+            self.assertEqual(vacio.restaurante_id, "6004")
+            self.assertEqual(diccionario.nombre(vacio.restaurante_id), "Ciudad Del Carmen")
+
+    def test_buscar_items_ignora_los_restaurantes_vacios(self):
+        """El propio buscador ya no los cuenta como restaurantes con datos."""
+        with tempfile.TemporaryDirectory() as tmp:
+            registros = cargar_reportes(self._carpeta_de_prueba(tmp))
+            resultados = buscar_items(registros, ["37014"], incluir_no_encontrados=False)
+            restaurantes = {r.restaurante_id for r in resultados}
+            self.assertNotIn("6004", restaurantes)
+            self.assertIn("6001", restaurantes)
 
 
 class PruebaDiccionario(unittest.TestCase):

@@ -82,7 +82,7 @@ python buscar_items.py
 ```
 
 ```
-Carpeta con los archivos .txt de los reportes [datos]:
+Carpeta con los reportes (.txt o .pdf) [datos]:
 Diccionario de restaurantes: 28 restaurantes cargados
 
 Leyendo archivos...
@@ -104,6 +104,43 @@ Se puede buscar:
 
 Al terminar pregunta el nombre del Excel y ofrece hacer otra búsqueda sin
 volver a leer los archivos.
+
+### Si algún reporte se descargó mal (viene vacío)
+
+A veces la descarga de un restaurante sale mal y el archivo queda vacío, sin
+un solo producto adentro (el encabezado incluso puede venir corrupto, con un
+texto raro en vez del nombre del restaurante). Antes ese aviso solo aparecía
+al final, en la hoja `Archivos` del Excel ya generado. Ahora el programa lo
+revisa **justo después de leer los archivos, antes de preguntar qué items
+buscar**, así que te enteras a tiempo de ir a volver a descargar el reporte:
+
+```
+Archivos leidos: 24 | restaurantes: 12 | periodos (segun el reporte): ...
+
+======================================================================
+ARCHIVOS QUE HAY QUE VOLVER A DESCARGAR
+======================================================================
+Estos reportes se leyeron sin ningun error, pero llegaron VACIOS
+(sin un solo producto adentro): la descarga salio mal.
+
+  6004 Ciudad Del Carmen           del 10/08/2026 al 13/08/2026 6004 (10-13).pdf
+
+Vuelve a descargar el reporte de esos restaurantes y corre el programa otra
+vez; no hace falta tocar los demas archivos.
+
+¿Aun asi quieres continuar, usando solo los restaurantes que si se leyeron
+bien? (s/n) [n]:
+```
+
+Con `n` (o solo Enter) el programa se cierra sin generar ningún Excel, para
+que vayas directo a descargar de nuevo esos reportes y corras el programa otra
+vez. Si contestas `s`, sigue de largo pero excluyendo esos restaurantes del
+análisis (igual que antes). Los archivos que ni siquiera se pudieron abrir
+(corruptos, protegidos, etc.) salen en esta misma lista.
+
+En modo automatizado (cuando ya diste `--items` y `--salida` por la terminal)
+el aviso también se imprime, pero no se detiene a preguntar nada: como nadie
+va a contestar, sigue de largo solo con los restaurantes que sí están bien.
 
 ### ¿Y si los reportes vienen en PDF?
 
@@ -217,7 +254,9 @@ cuántos restaurantes se vendió, unidades e importe.
 **Hoja `Archivos`** — el registro de cada archivo leído: qué restaurante se
 dedujo, las fechas que venían dentro del reporte, cuántos items se leyeron, si
 hubo algún problema y un **aviso** cuando el periodo del nombre del archivo no
-coincide con las fechas del reporte.
+coincide con las fechas del reporte. Los reportes vacíos o que no se pudieron
+leer también quedan aquí, aunque ya te habrán avisado antes, al principio de
+la corrida (sección «Si algún reporte se descargó mal», más arriba).
 
 ### ¿Por qué hay ventas en negativo?
 

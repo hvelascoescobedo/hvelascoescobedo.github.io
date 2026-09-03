@@ -73,6 +73,45 @@ class RegistroArchivo:
             )
         return ""
 
+    @property
+    def esta_vacio(self) -> bool:
+        """El archivo se leyo sin error pero no trae ningun producto adentro.
+
+        Pasa cuando la descarga del reporte salio mal: el encabezado del
+        restaurante viene corrupto (p. ej. "NSO IMAGE 2017" en vez del nombre
+        del restaurante) y el reporte no lista un solo item, aunque a veces si
+        conserva el "For the period" y llega a "Category Totals" en cero.
+        """
+        return self.reporte is not None and not self.reporte.items
+
+    @property
+    def tiene_problema(self) -> bool:
+        """No se pudo leer, o se leyo pero llego vacio: hay que re-descargarlo."""
+        return self.reporte is None or self.esta_vacio
+
+
+@dataclass
+class ProblemaArchivo:
+    """Un archivo que hay que volver a descargar, con el motivo."""
+
+    registro: RegistroArchivo
+    motivo: str  # "error" (no se pudo leer) o "vacio" (se leyo, sin productos)
+
+
+def detectar_problemas(registros: Sequence[RegistroArchivo]) -> list[ProblemaArchivo]:
+    """Archivos que llegaron mal y conviene volver a descargar.
+
+    Se revisa ANTES de buscar ningun item, para avisar de entrada -no hasta
+    el final, enterrado en la hoja Archivos del Excel- que ciertos restaurantes
+    necesitan que se repita la descarga del reporte.
+    """
+    problemas = [
+        ProblemaArchivo(r, "error" if r.reporte is None else "vacio")
+        for r in registros
+        if r.tiene_problema
+    ]
+    return sorted(problemas, key=lambda p: (p.registro.restaurante_id or "~", p.registro.info.nombre_archivo))
+
 
 @dataclass
 class ResultadoItem:

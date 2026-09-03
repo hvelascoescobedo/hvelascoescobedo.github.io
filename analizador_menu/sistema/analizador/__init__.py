@@ -11,7 +11,7 @@ Modulos:
 from .parser_reporte import ItemMenu, ReporteMenu, leer_reporte
 from .nombre_archivo import InfoArchivo, interpretar_nombre
 from .diccionario import DiccionarioRestaurantes
-from .busqueda import ResultadoItem, buscar_items, cargar_reportes
+from .busqueda import ProblemaArchivo, ResultadoItem, buscar_items, cargar_reportes, detectar_problemas
 from .exportar_excel import MAXIMO_HOJAS_COMBINACION, contar_combinaciones, exportar_resultados
 
 __all__ = [
@@ -24,6 +24,8 @@ __all__ = [
     "ResultadoItem",
     "buscar_items",
     "cargar_reportes",
+    "ProblemaArchivo",
+    "detectar_problemas",
     "exportar_resultados",
     "contar_combinaciones",
     "MAXIMO_HOJAS_COMBINACION",
