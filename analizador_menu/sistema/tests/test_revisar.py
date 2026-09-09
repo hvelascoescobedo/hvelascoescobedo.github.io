@@ -6,6 +6,7 @@ import contextlib
 import importlib.util
 import io
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -57,6 +58,40 @@ class PruebaRevisarArchivo(unittest.TestCase):
             registro = revisar_archivos.revisar(ruta)
             self.assertEqual(registro["estado"], ESTADO_VACIO)
             self.assertIn("0 bytes", registro["motivo"])
+            self.assertIn("Print to PDF", registro["motivo"])  # dice que hacer
+
+    def test_no_da_por_terminado_un_archivo_en_cero_bytes(self):
+        """'Microsoft Print to PDF' crea el PDF vacio y lo llena despues.
+
+        Si no se espera, se leeria en 0 bytes y se reportaria como vacio un
+        reporte que en realidad iba a salir bien.
+        """
+        import threading
+
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp) / "6012 (17-19).pdf"
+            ruta.write_bytes(b"")  # Windows lo crea vacio al elegir donde guardar
+
+            def escribir_despues():
+                time.sleep(0.3)
+                ruta.write_bytes(REPORTE_BUENO_PDF.read_bytes())
+
+            hilo = threading.Thread(target=escribir_despues)
+            hilo.start()
+            revisar_archivos.esperar_a_que_termine(ruta, pausa=0.1)
+            hilo.join()
+
+            self.assertGreater(ruta.stat().st_size, 0)
+            self.assertEqual(revisar_archivos.revisar(ruta)["estado"], ESTADO_OK)
+
+    def test_no_se_queda_esperando_para_siempre_si_quedo_en_cero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp) / "6005 (1-4).pdf"
+            ruta.write_bytes(b"")
+            inicio = time.perf_counter()
+            revisar_archivos.esperar_a_que_termine(ruta, pausa=0, intentos_en_cero=5)
+            self.assertLess(time.perf_counter() - inicio, 5)
+            self.assertEqual(revisar_archivos.revisar(ruta)["estado"], ESTADO_VACIO)
 
     def test_pdf_corrupto(self):
         with tempfile.TemporaryDirectory() as tmp:

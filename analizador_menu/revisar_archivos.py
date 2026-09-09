@@ -186,7 +186,12 @@ def revisar(ruta: Path) -> dict:
     }
     try:
         if ruta.stat().st_size == 0:
-            registro["motivo"] = "el archivo esta vacio (0 bytes)"
+            # Ojo: "Microsoft Print to PDF" crea el archivo en 0 bytes y lo
+            # llena despues, asi que esto puede ser solo que aun no termina.
+            registro["motivo"] = (
+                "pesa 0 bytes; si lo acabas de mandar a 'Microsoft Print to PDF', "
+                "espera a que Windows termine de guardarlo y revisalo otra vez"
+            )
             registro["estado"] = ESTADO_VACIO
             return registro
 
@@ -255,18 +260,25 @@ def firma(ruta: Path) -> tuple[int, int]:
         return (-1, -1)
 
 
-def esperar_a_que_termine(ruta: Path, pausa: float = 0.4, intentos: int = 12) -> None:
-    """Espera a que el archivo deje de crecer, por si sigue descargandose.
+def esperar_a_que_termine(
+    ruta: Path, pausa: float = 0.4, intentos: int = 12, intentos_en_cero: int = 30
+) -> None:
+    """Espera a que el archivo deje de crecer, por si sigue escribiendose.
 
     Sin esto, dar Enter demasiado pronto haria leer un archivo a medias y
     reportar un problema que en realidad no existe.
+
+    Un archivo en 0 bytes NO cuenta como terminado, y por eso se le da mucho
+    mas tiempo: "Microsoft Print to PDF" crea el archivo vacio en cuanto se
+    elige donde guardarlo, y el spooler lo llena varios segundos despues.
     """
     anterior = firma(ruta)
-    for _ in range(intentos):
+    limite = intentos_en_cero if anterior[0] == 0 else intentos
+    for _ in range(limite):
         time.sleep(pausa)
         actual = firma(ruta)
-        if actual == anterior:
-            return
+        if actual == anterior and actual[0] > 0:
+            return  # dejo de crecer y ya trae contenido
         anterior = actual
 
 
