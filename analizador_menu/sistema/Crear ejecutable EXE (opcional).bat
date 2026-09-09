@@ -1,8 +1,9 @@
 @echo off
 setlocal
 title Crear el ejecutable
-rem Genera "Buscar items.exe" para que el programa corra aunque la
-rem computadora no tenga Python. Solo hay que correrlo una vez.
+rem Genera "Buscar items.exe" y "Revisar archivos.exe" para que los
+rem programas corran aunque la computadora no tenga Python.
+rem Solo hay que correrlo una vez.
 cd /d "%~dp0.."
 
 set "PY=py -3"
@@ -24,9 +25,21 @@ echo Creando el ejecutable, esto tarda unos minutos...
     "%CD%\buscar_items.py" || goto :error
 
 copy /y "sistema\_build\dist\Buscar items.exe" "Buscar items.exe" >nul || goto :error
+
+echo Creando el revisor de archivos...
+%PY% -m PyInstaller --noconfirm --onefile --console ^
+    --name "Revisar archivos" ^
+    --hidden-import pypdf ^
+    --add-data "%CD%\sistema\Diccionario_restaurantes.xlsx;." ^
+    --distpath "sistema\_build\dist" ^
+    --workpath "sistema\_build\work" ^
+    --specpath "sistema\_build" ^
+    "%CD%\revisar_archivos.py" || goto :error
+
+copy /y "sistema\_build\dist\Revisar archivos.exe" "Revisar archivos.exe" >nul || goto :error
 echo.
-echo Listo: se creo "Buscar items.exe" en esta carpeta.
-echo Dejalo junto a las carpetas datos y resultados.
+echo Listo: se crearon "Buscar items.exe" y "Revisar archivos.exe" aqui.
+echo Dejalos junto a las carpetas datos y resultados.
 goto :fin
 
 :sin_python

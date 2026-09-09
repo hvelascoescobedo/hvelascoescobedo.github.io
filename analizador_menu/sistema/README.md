@@ -10,6 +10,9 @@ El programa lee **todos** los archivos de una carpeta (no hay que indicarlos uno
 por uno), sin importar si son 24, 66 o los que sean: reconoce el número de
 restaurante y el periodo desde el nombre del archivo.
 
+Viene acompañado de un segundo programa, **`Revisar archivos`**, que en unos
+segundos te dice si alguna descarga salió vacía antes de ponerte a analizar.
+
 ---
 
 ## 1. Instalación (una sola vez)
@@ -21,10 +24,10 @@ cd analizador_menu
 pip install -r sistema/requirements.txt
 ```
 
-Al abrir la carpeta del programa solo se ven tres cosas: el ejecutable
-`buscar_items.py`, la carpeta `datos/` (donde pones los reportes) y la carpeta
-`resultados/` (donde salen los Excel). Todo lo demás vive dentro de `sistema/`
-y no hay que tocarlo.
+Al abrir la carpeta solo se ven los dos programas (`Buscar items` y
+`Revisar archivos`), la carpeta `datos/` (donde pones los reportes) y la
+carpeta `resultados/` (donde salen los Excel). Todo lo demás vive dentro de
+`sistema/` y no hay que tocarlo.
 
 ## 2. Preparar la carpeta
 
@@ -59,9 +62,15 @@ junto a los reportes.
 
 ### Con doble clic (Windows)
 
-Doble clic en **`Buscar items.bat`** y listo: se abre la ventana negra y el
-programa empieza a preguntar. La primera vez instala solo lo que le falte, y si
-no encuentras Python instalado te lo dice con la liga para descargarlo.
+Hay dos programas, los dos de doble clic:
+
+* **`Buscar items.bat`** — el buscador de ventas por item (el principal).
+* **`Revisar archivos.bat`** — solo revisa que las descargas estén completas,
+  en unos segundos, sin generar ningún Excel.
+
+Doble clic y listo: se abre la ventana negra y el programa empieza a preguntar.
+La primera vez instala solo lo que le falte, y si no encuentras Python
+instalado te lo dice con la liga para descargarlo.
 
 Para no entrar a la carpeta cada vez, corre una sola vez
 `sistema\Crear acceso directo en el Escritorio.bat`: te deja el acceso directo
@@ -69,11 +78,11 @@ Para no entrar a la carpeta cada vez, corre una sola vez
 apuntando a esta carpeta).
 
 Si la computadora no tiene Python y no se puede instalar, corre una vez
-`sistema\Crear ejecutable EXE (opcional).bat`: genera **`Buscar items.exe`**,
-que ya no necesita Python. Ese `.exe` se puede llevar a otra computadora o al
-Escritorio; busca las carpetas `datos` y `resultados` junto a él (si lo dejas
-suelto en el Escritorio, le tecleas la ruta de los reportes y te deja los Excel
-en `Escritorio\resultados`).
+`sistema\Crear ejecutable EXE (opcional).bat`: genera **`Buscar items.exe`** y
+**`Revisar archivos.exe`**, que ya no necesitan Python. Se pueden llevar a otra
+computadora o al Escritorio; buscan las carpetas `datos` y `resultados` junto a
+ellos (si los dejas sueltos en el Escritorio, les tecleas la ruta de los
+reportes y los Excel salen en `Escritorio\resultados`).
 
 ### Modo interactivo desde la terminal
 
@@ -141,6 +150,54 @@ análisis (igual que antes). Los archivos que ni siquiera se pudieron abrir
 En modo automatizado (cuando ya diste `--items` y `--salida` por la terminal)
 el aviso también se imprime, pero no se detiene a preguntar nada: como nadie
 va a contestar, sigue de largo solo con los restaurantes que sí están bien.
+
+### Revisar los archivos por separado (rápido)
+
+Si solo quieres **checar que las descargas estén completas**, sin hacer ningún
+análisis, hay un segundo programa aparte: doble clic en
+**`Revisar archivos.bat`** (o `python revisar_archivos.py`).
+
+Es a propósito mucho más rápido que el buscador, porque no lee el reporte
+entero: va página por página y se detiene en cuanto encuentra el primer
+producto, que casi siempre está en la página 1. Sobre una carpeta de prueba
+con 11 archivos (8 PDFs de 15 páginas), el buscador tarda **42 segundos** y el
+revisor **1.6 segundos**.
+
+```
+Revisando 24 archivo(s)...
+
+  [  1/24]  OK       6001 (3-6).txt
+  [  2/24]  VACIO    6004 (10-13).pdf
+                       -> el reporte llego sin un solo producto
+  [  3/24]  NO ABRE  6006 (10-13).pdf
+                       -> PdfStreamError: Stream has ended unexpectedly
+  ...
+
+======================================================================
+RESULTADO: 22 bien, 2 con problema
+======================================================================
+
+Hay que volver a descargar estos reportes:
+
+  6004 Ciudad Del Carmen           del 10/08/2026 al 13/08/2026 6004 (10-13).pdf
+  6006 Tabasco                     (sin fechas)                 6006 (10-13).pdf
+
+Restaurantes a re-descargar: 6004, 6006
+```
+
+Los tres estados posibles son `OK` (trae productos), `VACIO` (se abre pero no
+trae nada, o pesa 0 bytes) y `NO ABRE` (archivo corrupto o protegido). La
+última línea junta los números de restaurante para que los copies directo a la
+hora de volver a descargar.
+
+| Opción | Para qué sirve |
+| --- | --- |
+| `--carpeta` | carpeta a revisar (si no la das, la pregunta) |
+| `--solo-problemas` | no listar los archivos que están bien |
+| `--no-recursivo` | no entrar a las subcarpetas |
+
+Termina con código `0` si todo está bien y `1` si hay algo que re-descargar,
+por si algún día lo quieres encadenar con otro proceso.
 
 ### ¿Y si los reportes vienen en PDF?
 
@@ -306,7 +363,9 @@ pruebas, con un reporte `.txt` y con uno `.pdf`).
 ```
 analizador_menu/
 ├── Buscar items.bat             <- doble clic aquí (Windows)
-├── buscar_items.py              <- el programa, por si lo corres a mano
+├── buscar_items.py              <- el buscador, por si lo corres a mano
+├── Revisar archivos.bat         <- solo revisa que las descargas esten completas
+├── revisar_archivos.py          <- el revisor, por si lo corres a mano
 ├── datos/                       <- aquí van los .txt descargados
 ├── resultados/                  <- aquí se guardan los Excel generados
 └── sistema/                     (el motor: no hace falta abrirlo)
@@ -319,7 +378,7 @@ analizador_menu/
     │   ├── busqueda.py          búsqueda de items en todos los archivos
     │   ├── exportar_excel.py    generación del Excel de resultados
     │   └── configuracion.py     lista de restaurantes de Oracle
-    ├── tests/                   pruebas automáticas
+    ├── tests/                   pruebas automáticas (de los dos programas)
     ├── Diccionario_restaurantes.xlsx
     ├── requirements.txt
     └── README.md                este archivo
