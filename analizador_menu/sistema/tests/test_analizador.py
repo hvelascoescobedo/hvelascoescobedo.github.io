@@ -683,6 +683,31 @@ class PruebaHojasPorCombinacion(unittest.TestCase):
             identificadores = [f[0] for f in hoja.iter_rows(values_only=True)]
             self.assertEqual(identificadores.count("6016"), 1)
 
+    def test_los_restaurantes_de_oracle_van_intercalados_por_numero(self):
+        """6016 (Oracle) debe quedar entre 6013 y 6019 (POSI), no al fondo."""
+        from openpyxl import load_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            original = REPORTE_EJEMPLO.read_text(encoding="utf-8")
+            (carpeta / "6013 (3-6).txt").write_text(
+                original.replace("#6001", "#6013"), encoding="utf-8"
+            )
+            # 6019 Caucel es POSI y numericamente mayor que el Oracle 6016.
+            (carpeta / "6019 (3-6).txt").write_text(
+                original.replace("#6001", "#6019"), encoding="utf-8"
+            )
+            registros = cargar_reportes(carpeta)
+            resultados = buscar_items(registros, ["37014"])
+            ruta = exportar_resultados(resultados, Path(tmp) / "salida.xlsx", registros)
+            hoja = load_workbook(ruta)["37014 03-08 a 06-08"]
+
+            identificadores = [f[0] for f in hoja.iter_rows(values_only=True) if f[0] != "TOTAL"][2:]
+            # 6013 (real) < 6016 (Oracle) < 6019 (real) < 6026..6030 (Oracle).
+            self.assertEqual(
+                identificadores, ["6013", "6016", "6019", "6026", "6027", "6028", "6029", "6030"]
+            )
+
     def test_busqueda_por_nombre_junta_sus_items_en_una_hoja(self):
         from openpyxl import load_workbook
 

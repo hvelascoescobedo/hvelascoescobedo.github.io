@@ -215,30 +215,28 @@ def _nombre_de_hoja(busqueda: str, inicio: date | None, fin: date | None, usados
     return nombre
 
 
-def _renglones_oracle(hoja, fila: int, renglones: Sequence[ResultadoItem]) -> int:
-    """Deja los renglones de Oracle rotulados y vacios para capturar a mano.
-
-    Solo se llenan el numero y el nombre del restaurante: en Oracle los items
-    tienen otra numeracion y otro nombre, asi que esas celdas -y las de ventas-
-    se dejan vacias.  Van con el mismo formato que los demas renglones.
-
-    Devuelve la fila siguiente a los renglones escritos.
-    """
+def _restaurantes_oracle_pendientes(renglones: Sequence[ResultadoItem]) -> list[tuple[str, str]]:
+    """Restaurantes de Oracle que aun no vinieron ya en los renglones leidos."""
     ya_presentes = {r.restaurante_id for r in renglones}
-    pendientes = sorted(
-        (par for par in RESTAURANTES_ORACLE if par[0] not in ya_presentes),
-        key=lambda par: par[0],
-    )
-    if not pendientes:
-        return fila
+    return [par for par in RESTAURANTES_ORACLE if par[0] not in ya_presentes]
 
-    for identificador, nombre in pendientes:
-        hoja.cell(row=fila, column=1, value=identificador)
-        hoja.cell(row=fila, column=2, value=nombre)
-        hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
-        fila += 1
 
-    return fila
+def _clave_restaurante(id_texto: str) -> tuple[int, str]:
+    """Clave de orden por #ID de restaurante: numerico primero, texto al final.
+
+    Con esto el renglon de un restaurante de Oracle queda intercalado en su
+    lugar -por numero-, no siempre al fondo de la hoja: 6016 (Oracle) va entre
+    6015 y 6019 (POSI), por ejemplo.
+    """
+    return (0, f"{int(id_texto):010d}") if id_texto.isdigit() else (1, id_texto)
+
+
+def _escribir_renglon_oracle(hoja, fila: int, identificador: str, nombre: str) -> None:
+    """Renglon de un restaurante de Oracle: solo #ID y nombre, listo para
+    capturar a mano el item y las ventas (en Oracle tienen otra numeracion)."""
+    hoja.cell(row=fila, column=1, value=identificador)
+    hoja.cell(row=fila, column=2, value=nombre)
+    hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
 
 
 def _hoja_de_combinacion(
@@ -270,23 +268,42 @@ def _hoja_de_combinacion(
 
     _escribir_encabezado(hoja, COLUMNAS_COMBINACION, fila=2)
 
+    # Los restaurantes de Oracle se intercalan por #ID junto con los reales
+    # (una tupla "real" o "oracle" por renglon), para que el orden final de la
+    # hoja sea puramente numerico: 6016 (Oracle) entre 6015 y 6019 (POSI), no
+    # siempre al fondo de la lista.
+    pendientes_oracle = _restaurantes_oracle_pendientes(renglones)
+    entradas: list[tuple[str, object]] = [("real", r) for r in renglones]
+    entradas += [("oracle", par) for par in pendientes_oracle]
+    entradas.sort(
+        key=lambda entrada: (
+            _clave_restaurante(
+                entrada[1].restaurante_id if entrada[0] == "real" else entrada[1][0]
+            ),
+            entrada[1].item_numero or 0 if entrada[0] == "real" else 0,
+        )
+    )
+
     primera_fila = 3
     fila = primera_fila
-    for renglon in sorted(renglones, key=lambda r: (r.restaurante_id, r.item_numero or 0)):
-        valores = [
-            renglon.restaurante_id,
-            renglon.restaurante_nombre,
-            renglon.item_numero if renglon.item_numero is not None else renglon.busqueda,
-            renglon.item_nombre,
-            renglon.unidades_vendidas,
-            round(renglon.ventas_importe, 2),
-        ]
-        for columna, valor in enumerate(valores, start=1):
-            hoja.cell(row=fila, column=columna, value=valor)
-        hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
+    for tipo, dato in entradas:
+        if tipo == "real":
+            renglon = dato
+            valores = [
+                renglon.restaurante_id,
+                renglon.restaurante_nombre,
+                renglon.item_numero if renglon.item_numero is not None else renglon.busqueda,
+                renglon.item_nombre,
+                renglon.unidades_vendidas,
+                round(renglon.ventas_importe, 2),
+            ]
+            for columna, valor in enumerate(valores, start=1):
+                hoja.cell(row=fila, column=columna, value=valor)
+            hoja.cell(row=fila, column=COLUMNA_IMPORTE).number_format = "#,##0.00"
+        else:
+            identificador, nombre = dato
+            _escribir_renglon_oracle(hoja, fila, identificador, nombre)
         fila += 1
-
-    fila = _renglones_oracle(hoja, fila, renglones)
     ultima_fila = fila - 1
 
     # El total va con formula para que se actualice al capturar los de Oracle.
