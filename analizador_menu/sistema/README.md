@@ -11,7 +11,8 @@ por uno), sin importar si son 24, 66 o los que sean: reconoce el número de
 restaurante y el periodo desde el nombre del archivo.
 
 Viene acompañado de un segundo programa, **`Revisar archivos`**, que en unos
-segundos te dice si alguna descarga salió vacía antes de ponerte a analizar.
+segundos te dice si alguna descarga salió vacía antes de ponerte a analizar, y
+que también puede quedarse revisando cada reporte conforme lo vas bajando.
 
 ---
 
@@ -24,10 +25,10 @@ cd analizador_menu
 pip install -r sistema/requirements.txt
 ```
 
-Al abrir la carpeta solo se ven los dos programas (`Buscar items` y
-`Revisar archivos`), la carpeta `datos/` (donde pones los reportes) y la
-carpeta `resultados/` (donde salen los Excel). Todo lo demás vive dentro de
-`sistema/` y no hay que tocarlo.
+Al abrir la carpeta solo se ven los programas (`Buscar items` y las dos formas
+de `Revisar`), la carpeta `datos/` (donde pones los reportes) y la carpeta
+`resultados/` (donde salen los Excel). Todo lo demás vive dentro de `sistema/`
+y no hay que tocarlo.
 
 ## 2. Preparar la carpeta
 
@@ -62,11 +63,13 @@ junto a los reportes.
 
 ### Con doble clic (Windows)
 
-Hay dos programas, los dos de doble clic:
+Hay tres botones, todos de doble clic:
 
 * **`Buscar items.bat`** — el buscador de ventas por item (el principal).
 * **`Revisar archivos.bat`** — solo revisa que las descargas estén completas,
   en unos segundos, sin generar ningún Excel.
+* **`Revisar mientras descargo.bat`** — igual, pero no se cierra: vas bajando
+  los reportes de uno en uno y te va diciendo si cada uno salió bien.
 
 Doble clic y listo: se abre la ventana negra y el programa empieza a preguntar.
 La primera vez instala solo lo que le falte, y si no encuentras Python
@@ -193,11 +196,70 @@ hora de volver a descargar.
 | Opción | Para qué sirve |
 | --- | --- |
 | `--carpeta` | carpeta a revisar (si no la das, la pregunta) |
+| `--vigilar` | no cerrarse: ir revisando cada archivo nuevo (ver abajo) |
 | `--solo-problemas` | no listar los archivos que están bien |
 | `--no-recursivo` | no entrar a las subcarpetas |
 
 Termina con código `0` si todo está bien y `1` si hay algo que re-descargar,
 por si algún día lo quieres encadenar con otro proceso.
+
+### Ir revisando mientras descargas, uno por uno
+
+Como los reportes se bajan de uno en uno, hay un tercer botón:
+**`Revisar mientras descargo.bat`** (o `python revisar_archivos.py --vigilar`).
+
+El programa no se cierra: revisa lo que ya hay en la carpeta y se queda
+esperando. Descargas un reporte, le das **Enter**, y te dice al momento si ese
+archivo salió bien o hay que bajarlo otra vez. Solo revisa lo que acaba de
+llegar, no vuelve a leer todo:
+
+```
+Primero reviso lo que ya hay en la carpeta:
+
+  OK       6001 (3-6).txt
+
+  Ese archivo esta bien.
+
+----------------------------------------------------------------------
+Ya puedes descargar los reportes de uno en uno.
+  Enter  -> reviso lo que acabe de llegar
+  todo   -> vuelvo a revisar todos los archivos de la carpeta
+  salir  -> termino y te doy el resumen
+----------------------------------------------------------------------
+
+Esperando... (Enter para revisar) >
+
+Reviso 1 archivo(s) nuevo(s):
+
+  OK       6012 (17-19).pdf
+
+  Ese archivo esta bien.
+
+Esperando... (Enter para revisar) >
+
+Reviso 1 archivo(s) nuevo(s):
+
+  VACIO    6004 (24-27).pdf
+           -> el reporte llego sin un solo producto
+
+  >>> OJO: 1 de 1 hay que volver a descargarlo.
+```
+
+Con `salir` (o Ctrl+C) termina y te da el resumen de todo lo que revisaste en
+esa sesión, con la lista de lo que quedó pendiente.
+
+Tres cosas que hace solo para no darte sustos:
+
+* **Si vuelves a bajar un reporte encima de uno que salió mal**, lo reconoce
+  como re-descargado y lo revisa otra vez; si ahora sí trae datos, deja de
+  aparecer como pendiente.
+* **Si el archivo todavía se está descargando** (`.crdownload` de Chrome,
+  `.part` de Firefox, etc.), te avisa y te pide que esperes, en vez de leerlo
+  a medias y marcarlo mal.
+* Antes de leer cada archivo espera a que deje de crecer, por lo mismo.
+
+Si usas el `.exe` en vez de Python, es el mismo programa con la opción:
+`"Revisar archivos.exe" --vigilar`.
 
 ### ¿Y si los reportes vienen en PDF?
 
@@ -365,6 +427,7 @@ analizador_menu/
 ├── Buscar items.bat             <- doble clic aquí (Windows)
 ├── buscar_items.py              <- el buscador, por si lo corres a mano
 ├── Revisar archivos.bat         <- solo revisa que las descargas esten completas
+├── Revisar mientras descargo.bat <- revisa cada archivo nuevo, uno por uno
 ├── revisar_archivos.py          <- el revisor, por si lo corres a mano
 ├── datos/                       <- aquí van los .txt descargados
 ├── resultados/                  <- aquí se guardan los Excel generados
