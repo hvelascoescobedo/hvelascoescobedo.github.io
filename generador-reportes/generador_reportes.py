@@ -37,6 +37,10 @@ SEPARADOR_NOMBRE = " a "        # -> "15-08-26 a 17-08-26.bat"
 
 PRIMER_ANIO = 2000               # año mas antiguo que se acepta al teclear
 
+# Segundos de espera despues de confirmar, antes de lanzar el siguiente
+# REPORTSW. Da margen a que PosiTouch suelte del todo sus archivos.
+SEGUNDOS_ENTRE_REPORTES = 5
+
 # Plantilla de respaldo por si plantilla.BAT no esta en la carpeta.
 PLANTILLA_POR_DEFECTO = "\r\n".join([
     "@echo off",
@@ -290,11 +294,10 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
     """Arma el .BAT completo con todos los periodos, uno tras otro.
 
     Con un solo periodo no hace falta pausa ni pregunta: corre directo.
-    Con dos o mas, cada reporte termina preguntando si se continua con el
-    siguiente: Enter sigue, N corta ahi mismo. La pregunta se hace con
-    'set /p' (comando interno de cmd.exe) en vez de 'choice', porque en la
-    maquina de PosiTouch el .BAT trabaja parado en C:\\SC y ahi se topa con
-    un CHOICE antiguo que no acepta la sintaxis moderna.
+    Con dos o mas, cada reporte termina preguntando con CHOICE si se sigue
+    con el siguiente (S) o se corta ahi (N). CHOICE se invoca por su ruta
+    completa en System32 para no toparse con el CHOICE viejo que vive en
+    C:\\SC, que es donde el .BAT esta parado cuando hace la pregunta.
     """
     n = len(periodos)
 
@@ -333,19 +336,44 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
         texto += cuerpo_reporte
 
         if i < n:
-            # Se usa 'set /p' y no 'choice': set es un comando interno de
-            # cmd.exe, asi que no depende de un .exe que pueda faltar o que
-            # se confunda con el CHOICE viejo que vive en C:\SC.
-            texto += SALTO
-            texto += ("echo  Reporte %d listo. Guarda o renombra el archivo"
-                       " generado." % i) + SALTO
-            texto += SALTO
-            texto += 'set "respuesta="' + SALTO
-            texto += ('set /p "respuesta=  Continuar con el reporte %d de %d?'
-                      '  (Enter = si / N = no): "' % (i + 1, n)) + SALTO
-            texto += 'if /i "%respuesta%"=="N" goto :fin' + SALTO
-            texto += 'if /i "%respuesta%"=="NO" goto :fin' + SALTO
-            texto += "goto :reporte%d" % (i + 1) + SALTO
+            # CHOICE se llama por su ruta completa a proposito. Llamarlo
+            # solo como "choice" hace que Windows busque primero en la
+            # carpeta actual -- que aqui es C:\SC -- y ahi vive un CHOICE
+            # antiguo de PosiTouch que aborta con "invalid choice switch
+            # syntax". Con la ruta completa siempre toca el de Windows.
+            # Si el Windows fuera tan viejo que no trae choice.exe, se cae
+            # al 'set /p', que es interno de cmd.exe y nunca falta.
+            bloque = [
+                "",
+                "echo.",
+                "echo  Reporte {i} listo. Guarda o renombra el archivo que"
+                " se acaba de generar.",
+                "echo  Cierralo antes de seguir si lo abriste en Excel o en"
+                " el Bloc de notas.",
+                "echo.",
+                'if not exist "%SystemRoot%\\System32\\choice.exe"'
+                " goto :teclado{i}",
+                '"%SystemRoot%\\System32\\choice.exe" /C SN /N'
+                ' /M "  Continuar con el reporte {sig} de {n} (S/N)? "',
+                "if errorlevel 2 goto :fin",
+                "goto :sigue{i}",
+                "",
+                ":teclado{i}",
+                'set "respuesta="',
+                'set /p "respuesta=  Continuar con el reporte {sig} de {n}'
+                ' (S/N)? "',
+                'if /i "%respuesta%"=="N" goto :fin',
+                'if /i "%respuesta%"=="NO" goto :fin',
+                "",
+                ":sigue{i}",
+                "echo.",
+                "echo  Preparando el reporte {sig}...",
+                "timeout /t {espera} /nobreak >nul",
+                "goto :reporte{sig}",
+            ]
+            for linea in bloque:
+                texto += linea.format(i=i, sig=i + 1, n=n,
+                                      espera=SEGUNDOS_ENTRE_REPORTES) + SALTO
         elif n > 1:
             texto += SALTO
             texto += ("echo  Reporte %d listo. Ya se generaron los %d"
