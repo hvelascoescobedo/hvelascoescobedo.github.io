@@ -46,13 +46,13 @@ REPORTSW 8 C 15 13 N 4 YYYYYYYYYYYYYYYYYYYYY N Y 1 N N
   pregunta:
 
   ```
-    Continuar con el reporte 2 de 3 (S/N)?
+    Continuar con el reporte 2 de 3?  (Enter = si / N = no):
   ```
 
   Eso te da tiempo de guardar o renombrar el reporte que se acaba de
-  generar antes de que se sobrescriba con el siguiente. Si contestas `S`
-  sigue con el próximo; si contestas `N`, el `.BAT` se cierra ahí mismo sin
-  correr los reportes que faltaban.
+  generar antes de que se sobrescriba con el siguiente. Presiona **Enter**
+  (o `S`) para seguir con el próximo; escribe **`N`** y Enter para cerrar
+  el `.BAT` ahí mismo sin correr los reportes que faltaban.
 
 Ejemplo, ejecutado el 03/09/2026, pidiendo 2 reportes en un mismo `.BAT`:
 
@@ -87,9 +87,12 @@ Archivo generado: `ejeutables/15-08-26 a 22-08-26 (2 reportes).bat`
 - **Si te equivocas, no pasa nada.** Un día 32, un mes 13, un 31 de febrero o
   una fecha del futuro se rechazan con un mensaje y vuelve a preguntar. Si
   pones el inicio después del fin, te ofrece invertirlas.
-- **`choice` necesita Windows Vista o más nuevo** (7/10/11 lo traen). Si la
-  máquina de PosiTouch corre algo más viejo que eso, avísame y lo cambio por
-  un `pause` simple (sin poder contestar "no" a mitad de la corrida).
+- **La pregunta usa `set /p`, no `choice`.** Con `choice` la máquina daba
+  *"CHOICE: invalid choice switch syntax"*: le estaba tocando un `CHOICE`
+  antiguo, con toda probabilidad uno que vive dentro de `C:\SC` (el `.BAT`
+  trabaja parado en esa carpeta y Windows busca ahí antes que en la del
+  sistema). `set /p` es un comando interno de `cmd.exe`, no un archivo, así
+  que no se puede suplantar ni faltar.
 - **Si cambias el reporte** (otro tipo, otras opciones), edita
   `plantilla.BAT` con la configuración que quieras. Sólo tiene que conservar
   una línea con el formato `REPORTSW <algo> <algo> <número> <número> ...`;

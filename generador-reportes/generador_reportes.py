@@ -291,7 +291,10 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
 
     Con un solo periodo no hace falta pausa ni pregunta: corre directo.
     Con dos o mas, cada reporte termina preguntando si se continua con el
-    siguiente (S/N); si se contesta que no, el .BAT se cierra ahi mismo.
+    siguiente: Enter sigue, N corta ahi mismo. La pregunta se hace con
+    'set /p' (comando interno de cmd.exe) en vez de 'choice', porque en la
+    maquina de PosiTouch el .BAT trabaja parado en C:\\SC y ahi se topa con
+    un CHOICE antiguo que no acepta la sintaxis moderna.
     """
     n = len(periodos)
 
@@ -330,18 +333,25 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
         texto += cuerpo_reporte
 
         if i < n:
+            # Se usa 'set /p' y no 'choice': set es un comando interno de
+            # cmd.exe, asi que no depende de un .exe que pueda faltar o que
+            # se confunda con el CHOICE viejo que vive en C:\SC.
             texto += SALTO
             texto += ("echo  Reporte %d listo. Guarda o renombra el archivo"
                        " generado." % i) + SALTO
             texto += SALTO
-            texto += ('choice /c SN /n /m "  Continuar con el reporte %d de'
-                       ' %d (S/N)? "' % (i + 1, n)) + SALTO
-            texto += "if errorlevel 2 goto :fin" + SALTO
+            texto += 'set "respuesta="' + SALTO
+            texto += ('set /p "respuesta=  Continuar con el reporte %d de %d?'
+                      '  (Enter = si / N = no): "' % (i + 1, n)) + SALTO
+            texto += 'if /i "%respuesta%"=="N" goto :fin' + SALTO
+            texto += 'if /i "%respuesta%"=="NO" goto :fin' + SALTO
             texto += "goto :reporte%d" % (i + 1) + SALTO
         elif n > 1:
             texto += SALTO
             texto += ("echo  Reporte %d listo. Ya se generaron los %d"
                        " reportes." % (i, n)) + SALTO
+            texto += "echo." + SALTO
+            texto += "pause" + SALTO
             texto += SALTO
 
     texto += ":fin" + SALTO
