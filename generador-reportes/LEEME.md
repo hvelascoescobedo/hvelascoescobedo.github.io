@@ -54,9 +54,23 @@ REPORTSW 8 C 15 13 N 4 YYYYYYYYYYYYYYYYYYYYY N Y 1 N N
   para seguir con el próximo o **`N`** para cerrar el `.BAT` ahí mismo sin
   correr los reportes que faltaban (no hace falta Enter).
 
-  **Antes de contestar `S`, cierra el archivo del reporte anterior** si lo
-  abriste en Excel o el Bloc de notas: si sigue abierto, PosiTouch puede no
-  poder escribir el siguiente.
+### El rango se copia solo al portapapeles
+
+Justo **antes** de lanzar cada reporte, el `.BAT` copia a tu portapapeles el
+rango de ese reporte en formato `dd-mm/dd-mm`, y lo muestra en pantalla:
+
+```
+  Portapapeles: 15-08/17-08
+```
+
+Así, cuando guardas el archivo que generó PosiTouch, sólo pegas
+(`Ctrl + V`) en vez de teclear las fechas. Con varios reportes en un mismo
+`.BAT` el portapapeles se actualiza en cada uno, siempre antes de que ese
+reporte corra, así que durante la pausa siempre tienes en el portapapeles
+el rango del reporte que acabas de generar.
+
+Se copia sin salto de línea al final, para que al pegarlo en el nombre del
+archivo no se meta un renglón de más.
 
 Ejemplo, ejecutado el 03/09/2026, pidiendo 2 reportes en un mismo `.BAT`:
 
@@ -110,6 +124,7 @@ Archivo generado: `ejeutables/15-08-26 a 22-08-26 (2 reportes).bat`
 | Lo que ves | Qué es | Qué hacer |
 |------------|--------|-----------|
 | `CHOICE: invalid choice switch syntax` | El `.BAT` es de una versión vieja del generador, la que llamaba `choice` a secas. | Regenera el `.BAT` con esta versión. |
+| El portapapeles queda vacío o no pega nada | No se encontró `clip.exe`. | El rango igual sale en pantalla (`Portapapeles: 15-08/17-08`), puedes teclearlo. Avísame y lo cambio por otro método. |
 | `UTILITY ABORT — User Error ...70... Check BTREE Manual` | **No es del `.BAT`**: es PosiTouch (`REPORTSW`) abortando contra su base de datos Btrieve. El `.BAT` sólo lo llama, con los mismos parámetros de siempre y sólo cambiando los dos números. | Ver abajo. |
 
 Para el error de BTREE, lo que ayuda a ubicarlo:
@@ -119,16 +134,14 @@ Para el error de BTREE, lo que ayuda a ubicarlo:
    `.BAT` de un solo reporte. Pruébalo para confirmarlo.
 2. **¿Tenías abierto el reporte anterior?** Si lo dejaste abierto en Excel
    o el Bloc de notas, `REPORTSW` puede no poder escribir el siguiente.
+   Ciérralo antes de contestar `S`.
 3. **¿El periodo incluye el día de hoy?** Algunos reportes de PosiTouch no
    pueden cerrar un día que todavía está abierto. Prueba el mismo `.BAT`
    con el periodo terminando ayer.
 4. **¿Es un periodo muy viejo?** Si esos días ya fueron purgados de la base
    de datos, no hay nada que reportar y la utilería aborta.
 
-El `.BAT` ya espera 10 segundos después de cada reporte (como el original) y
-otros 5 después de que contestas `S`, para darle margen a PosiTouch a soltar
-sus archivos. Ese segundo margen se cambia en `SEGUNDOS_ENTRE_REPORTES`,
-arriba del `.py`.
+El `.BAT` espera 10 segundos después de cada reporte, igual que el original.
 
 ## Requisitos
 

@@ -37,10 +37,6 @@ SEPARADOR_NOMBRE = " a "        # -> "15-08-26 a 17-08-26.bat"
 
 PRIMER_ANIO = 2000               # año mas antiguo que se acepta al teclear
 
-# Segundos de espera despues de confirmar, antes de lanzar el siguiente
-# REPORTSW. Da margen a que PosiTouch suelte del todo sus archivos.
-SEGUNDOS_ENTRE_REPORTES = 5
-
 # Plantilla de respaldo por si plantilla.BAT no esta en la carpeta.
 PLANTILLA_POR_DEFECTO = "\r\n".join([
     "@echo off",
@@ -290,8 +286,17 @@ def insertar_tras_echo_off(texto, lineas_extra):
     return "".join(lineas)
 
 
+def rango_portapapeles(periodo):
+    """Lo que se copia al portapapeles antes de cada reporte: 'dd-mm/dd-mm'."""
+    return "%s/%s" % (periodo["inicio"].strftime("%d-%m"),
+                      periodo["fin"].strftime("%d-%m"))
+
+
 def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
     """Arma el .BAT completo con todos los periodos, uno tras otro.
+
+    Antes de lanzar cada REPORTSW copia al portapapeles el rango de ese
+    reporte en formato dd-mm/dd-mm, para poder pegarlo al guardar.
 
     Con un solo periodo no hace falta pausa ni pregunta: corre directo.
     Con dos o mas, cada reporte termina preguntando con CHOICE si se sigue
@@ -330,6 +335,19 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
                           p["fin"].strftime("%d/%m/%Y"))) + SALTO
             texto += "echo ===============================================" + SALTO
 
+        # Copia el rango al portapapeles ANTES de lanzar el reporte, para
+        # poder pegarlo al guardar el archivo que PosiTouch genera.
+        # CLIP se llama por su ruta completa por lo mismo que CHOICE: el
+        # .BAT esta parado en C:\SC y la carpeta actual se busca primero.
+        # El '<nul set /p' imprime el texto sin salto de linea al final,
+        # que es lo que se quiere pegar; con 'echo' se copiaria un CRLF
+        # de mas. Si no hubiera clip.exe, el 2>nul se traga el error y el
+        # reporte se genera igual.
+        rango = rango_portapapeles(p)
+        texto += ("echo  Portapapeles: %s" % rango) + SALTO
+        texto += ('<nul set /p "=%s" | "%%SystemRoot%%\\System32\\clip.exe"'
+                  " 2>nul" % rango) + SALTO
+
         cuerpo_reporte = sustituir_dias(cuerpo, p["dias_inicio"], p["dias_fin"])
         if not cuerpo_reporte.endswith(("\n", "\r")):
             cuerpo_reporte += SALTO
@@ -348,15 +366,13 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
                 "echo.",
                 "echo  Reporte {i} listo. Guarda o renombra el archivo que"
                 " se acaba de generar.",
-                "echo  Cierralo antes de seguir si lo abriste en Excel o en"
-                " el Bloc de notas.",
                 "echo.",
                 'if not exist "%SystemRoot%\\System32\\choice.exe"'
                 " goto :teclado{i}",
                 '"%SystemRoot%\\System32\\choice.exe" /C SN /N'
                 ' /M "  Continuar con el reporte {sig} de {n} (S/N)? "',
                 "if errorlevel 2 goto :fin",
-                "goto :sigue{i}",
+                "goto :reporte{sig}",
                 "",
                 ":teclado{i}",
                 'set "respuesta="',
@@ -364,16 +380,10 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
                 ' (S/N)? "',
                 'if /i "%respuesta%"=="N" goto :fin',
                 'if /i "%respuesta%"=="NO" goto :fin',
-                "",
-                ":sigue{i}",
-                "echo.",
-                "echo  Preparando el reporte {sig}...",
-                "timeout /t {espera} /nobreak >nul",
                 "goto :reporte{sig}",
             ]
             for linea in bloque:
-                texto += linea.format(i=i, sig=i + 1, n=n,
-                                      espera=SEGUNDOS_ENTRE_REPORTES) + SALTO
+                texto += linea.format(i=i, sig=i + 1, n=n) + SALTO
         elif n > 1:
             texto += SALTO
             texto += ("echo  Reporte %d listo. Ya se generaron los %d"
