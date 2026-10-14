@@ -54,6 +54,15 @@ REPORTSW 8 C 15 13 N 4 YYYYYYYYYYYYYYYYYYYYY N Y 1 N N
   para seguir con el próximo o **`N`** para cerrar el `.BAT` ahí mismo sin
   correr los reportes que faltaban (no hace falta Enter).
 
+  En esa pausa el `.BAT` también te recuerda cerrar el archivo si lo
+  abriste para revisarlo: si sigue abierto en Excel o el Bloc de notas,
+  PosiTouch puede no poder escribir el siguiente.
+
+- Después de contestar `S`, espera **5 segundos más** antes de lanzar el
+  siguiente reporte ("Preparando el reporte 2..."), para darte margen a
+  terminar de guardar y a que PosiTouch suelte sus archivos. Si se te hace
+  mucho o poco, cambia `SEGUNDOS_ENTRE_REPORTES` arriba del `.py`.
+
 ### El rango se copia solo al portapapeles
 
 Justo **antes** de lanzar cada reporte, el `.BAT` copia a tu portapapeles el
@@ -141,7 +150,9 @@ Para el error de BTREE, lo que ayuda a ubicarlo:
 4. **¿Es un periodo muy viejo?** Si esos días ya fueron purgados de la base
    de datos, no hay nada que reportar y la utilería aborta.
 
-El `.BAT` espera 10 segundos después de cada reporte, igual que el original.
+El `.BAT` espera 10 segundos después de cada reporte (como el original) y
+otros 5 después de que contestas `S`. Ese segundo margen se cambia en
+`SEGUNDOS_ENTRE_REPORTES`, arriba del `.py`.
 
 ## Requisitos
 

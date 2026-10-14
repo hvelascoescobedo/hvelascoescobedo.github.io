@@ -37,6 +37,11 @@ SEPARADOR_NOMBRE = " a "        # -> "15-08-26 a 17-08-26.bat"
 
 PRIMER_ANIO = 2000               # año mas antiguo que se acepta al teclear
 
+# Segundos de espera despues de confirmar, antes de lanzar el siguiente
+# REPORTSW. Da margen a terminar de guardar y a que PosiTouch suelte del
+# todo sus archivos.
+SEGUNDOS_ENTRE_REPORTES = 5
+
 # Plantilla de respaldo por si plantilla.BAT no esta en la carpeta.
 PLANTILLA_POR_DEFECTO = "\r\n".join([
     "@echo off",
@@ -366,13 +371,15 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
                 "echo.",
                 "echo  Reporte {i} listo. Guarda o renombra el archivo que"
                 " se acaba de generar.",
+                "echo  Cierralo antes de seguir si lo abriste en Excel o en"
+                " el Bloc de notas.",
                 "echo.",
                 'if not exist "%SystemRoot%\\System32\\choice.exe"'
                 " goto :teclado{i}",
                 '"%SystemRoot%\\System32\\choice.exe" /C SN /N'
                 ' /M "  Continuar con el reporte {sig} de {n} (S/N)? "',
                 "if errorlevel 2 goto :fin",
-                "goto :reporte{sig}",
+                "goto :sigue{i}",
                 "",
                 ":teclado{i}",
                 'set "respuesta="',
@@ -380,10 +387,16 @@ def construir_bat(cabecera, cuerpo, cierre, periodos, hoy):
                 ' (S/N)? "',
                 'if /i "%respuesta%"=="N" goto :fin',
                 'if /i "%respuesta%"=="NO" goto :fin',
+                "",
+                ":sigue{i}",
+                "echo.",
+                "echo  Preparando el reporte {sig}...",
+                "timeout /t {espera} /nobreak >nul",
                 "goto :reporte{sig}",
             ]
             for linea in bloque:
-                texto += linea.format(i=i, sig=i + 1, n=n) + SALTO
+                texto += linea.format(i=i, sig=i + 1, n=n,
+                                      espera=SEGUNDOS_ENTRE_REPORTES) + SALTO
         elif n > 1:
             texto += SALTO
             texto += ("echo  Reporte %d listo. Ya se generaron los %d"
